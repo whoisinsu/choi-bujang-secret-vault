@@ -91,7 +91,7 @@ function render(session) {
   status.dataset.state = user ? 'in' : 'out';
 }
 
-let shownToken;
+let shownToken = Symbol('not-loaded');
 function update(session) {
   render(session);
   if (session?.access_token === shownToken) return;
