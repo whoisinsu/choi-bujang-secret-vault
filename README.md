@@ -71,7 +71,19 @@ git grep -cE "$Q" 4f07b71
 - 다시 확인하는 방법: 시크릿 창에서 로그인 없이 `/`를 열면 "로그인하면 자료가 보입니다."만 보이고, `curl -s -o /dev/null -w '%{http_code}' https://choi-bujang-secret-vault-blue-tau.vercel.app/api/notes`는 401입니다. A로 로그인하면 메모가 보이고 추가·수정·삭제가 됩니다. 로그아웃하면 다시 사라집니다.
 - 제출 묶음: 커밋 뒤 `bundle-notes.json`(Git 제외)을 갱신하고 `npm run bundle`을 실행합니다. 자기 점검은 로그인 없는 요청과 위조 토큰 요청의 HTTP 상태만 기록합니다. 비밀번호를 점검 코드에 넣지 않으므로 A 로그인 뒤 동작은 미실행으로 남기고 화면에서 직접 확인합니다. 심판 판정이 아닙니다.
 
-**남은 약점:** 한 건 조회·수정·삭제(`/api/notes/:id`)는 로그인만 확인하고 소유자(`owner_id`)를 대조하지 않습니다. 로그인한 B가 A 메모의 `id`를 알면 읽고 고치고 지울 수 있습니다. 4단계에서 막고 기록합니다. 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
+**3단계 당시 남은 약점(4단계에서 소유자 대조로 막음):** 한 건 조회·수정·삭제(`/api/notes/:id`)는 로그인만 확인하고 소유자(`owner_id`)를 대조하지 않았습니다. 로그인한 B가 A 메모의 `id`를 알면 읽고 고치고 지울 수 있습니다. 4단계에서 막고 기록합니다. 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
+
+## 4단계: 로그인해도 내 자료만
+
+- 소유자 대조(`api/notes/[id].js`): 한 건 조회·수정·삭제는 `id`와 함께 `owner_id = 서버가 확인한 사용자 ID`인 행에만 적용합니다. 다른 사람의 메모는 없는 메모와 똑같이 404 `NOTE_NOT_FOUND`로 거부해 존재 여부도 알려 주지 않습니다. 수정은 기존 행이 본인 것일 때만 고치고 새 행의 `owner_id`도 본인인지 확인합니다. 본문에 다른 사람을 가리키는 `owner_id`·`ownerId`·`owner`·`userId`·`user_id`가 있으면 403 `OWNER_CHANGE_FORBIDDEN`입니다.
+- 목록(`GET /api/notes`)은 본인 메모만, 추가(`POST`)는 본문과 상관없이 확인된 ID로 저장합니다. 응답 `{id,title,body}`와 수정 본문 `{title,body}`는 그대로입니다. `allowedRoutes` 다섯 개도 그대로입니다.
+- 시험 자료(`supabase/step4_owners.sql`): 가상 메모 네 건을 A 테스트 계정 소유로 맞추고, B 테스트 계정 소유의 공개 가능한 시험 메모 한 건(`b0000000-0000-4000-8000-000000000001`)을 만듭니다. 이메일로 `auth.users`에서 ID를 찾습니다.
+- DB 권한(`supabase/step4_rls.sql`, `public.notes`만): `PUBLIC`·`anon`·`authenticated` 권한을 모두 회수한 뒤 `authenticated`에 SELECT·INSERT·UPDATE·DELETE만 줍니다. RLS 정책 네 개가 모두 `(select auth.uid()) = owner_id`일 때만 허용합니다(SELECT·DELETE는 기존 행 USING, INSERT는 새 행 WITH CHECK, UPDATE는 둘 다). 실행 결과의 적용 전후 대조표(`has_table_privilege`·`role_table_grants`)에서 `anon`은 권한 없음, `authenticated`는 네 가지만 남은 것을 확인했습니다. 앱 서버는 서버 전용 키로 접속하므로 소유자 대조는 API가 맡습니다.
+- 4단계 저장점: `aleph.config.json`은 `step: 4`입니다. 원본 API 주소는 5단계라 비어 있습니다.
+- 다시 확인하는 방법: A로 로그인하면 가상 메모 네 건만, B로 로그인하면 B 시험 메모만 보이고 각자 추가·수정·삭제가 됩니다. B로 로그인한 브라우저에서 A 메모 id로 `GET·PUT·DELETE /api/notes/:id`를 보내면 모두 404이고 A 메모는 그대로입니다. 공개용 anon 키로 `https://skevbebxatwbmomeoqtx.supabase.co/rest/v1/notes`에 직접 읽기·쓰기를 보내면 401 `permission denied`입니다.
+- 제출 묶음: 자기 점검은 로그인 없는 요청·위조 토큰·anon 키 Data API 직접 요청의 결과만 기록합니다. 로그인 토큰을 점검 코드에 넣지 않으므로 B의 A 메모 접근은 자동 점검에서 미실행으로 남기고, 브라우저에서 직접 확인한 결과는 설명에 적습니다. 심판 판정이 아닙니다.
+
+**남은 점:** `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다(내용은 나가지 않음). `authenticated` 역할로 Data API에 직접 접근하는 경로는 RLS로 본인 행만 허용하지만 심판이 재현할 수 없어 점수에서 제외됩니다. 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
