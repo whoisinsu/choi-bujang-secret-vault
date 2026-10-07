@@ -31,6 +31,13 @@
     .auth-message { margin: 12px 0 0; font-size: 15px; }
     .auth-message[data-kind="error"] { color: #ffb3c0; }
     .auth-message[data-kind="ok"] { color: #b6f0dc; }
+    .auth textarea, .note-form textarea, .note-form input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #51667c; background: #101a28; color: #ecf4ff; resize: vertical; }
+    .note-form { display: grid; gap: 10px; }
+    .note-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .note-actions button, .note-form button { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 12px; border: 1px solid #51667c; border-radius: 9px; background: #101a28; color: #ecf4ff; cursor: pointer; }
+    .note-actions button.danger { border-color: #d07384; color: #ffb3c0; }
+    .note-actions button:disabled, .note-form button:disabled { opacity: .5; cursor: default; }
+    li span { white-space: pre-wrap; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -51,6 +58,15 @@
         <button id="logout" type="button">로그아웃</button>
       </div>
       <p id="auth-message" class="auth-message" role="status" hidden></p>
+    </section>
+    <section id="notes-panel" class="auth" aria-labelledby="note-add-title" hidden>
+      <h2 id="note-add-title">새 가상 메모</h2>
+      <form id="note-add">
+        <label>제목 <input id="note-title" maxlength="200" required></label>
+        <label>내용 <textarea id="note-body" maxlength="5000" rows="3"></textarea></label>
+        <button id="note-submit" type="submit">추가</button>
+      </form>
+      <p id="note-message" class="auth-message" role="status" hidden></p>
     </section>
     <ul id="notes" aria-live="polite"><li>로그인 상태를 확인하는 중입니다.</li></ul>
   </main>

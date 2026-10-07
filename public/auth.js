@@ -17,6 +17,12 @@ const logout = document.querySelector('#logout');
 const status = document.querySelector('#auth-status');
 const message = document.querySelector('#auth-message');
 const list = document.querySelector('#notes');
+const notesPanel = document.querySelector('#notes-panel');
+const addForm = document.querySelector('#note-add');
+const addTitle = document.querySelector('#note-title');
+const addBody = document.querySelector('#note-body');
+const addSubmit = document.querySelector('#note-submit');
+const noteMessage = document.querySelector('#note-message');
 
 const REASONS = {
   invalid_credentials: '이메일 또는 비밀번호가 맞지 않습니다.',
@@ -48,39 +54,137 @@ function showNotesMessage(text) {
   list.replaceChildren(item);
 }
 
-// 메모는 로그인 세션의 access token을 Authorization 헤더에 실어 서버에 요청합니다.
-// 사용자 ID나 역할은 보내지 않습니다. 서버가 토큰만 검사해 판단합니다.
+function showNoteMessage(text, kind) {
+  noteMessage.textContent = text;
+  noteMessage.dataset.kind = kind;
+  noteMessage.hidden = !text;
+}
+
+// 메모 API는 로그인 세션의 access token을 Authorization 헤더에 실어 부릅니다.
+// 사용자 ID·역할·owner_id는 보내지 않습니다. 서버가 토큰만 검사해 판단합니다.
+let currentSession = null;
+async function api(path, { method = 'GET', payload } = {}) {
+  if (!currentSession?.access_token) throw new Error('로그인한 뒤에 할 수 있습니다.');
+  const headers = { Authorization: `Bearer ${currentSession.access_token}` };
+  if (payload) headers['Content-Type'] = 'application/json';
+  const response = await fetch(path, {
+    method, cache: 'no-store', headers, body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (response.status === 401) throw new Error('로그인을 확인하지 못했습니다. 다시 로그인해 주세요.');
+  if (response.status === 404) throw new Error('메모를 찾을 수 없습니다. 이미 지워졌을 수 있습니다.');
+  if (response.status === 400) throw new Error('제목(200자 이내)과 내용(5000자 이내)을 확인하세요.');
+  if (!response.ok) throw new Error('서버에서 요청을 처리하지 못했습니다.');
+  return response.status === 204 ? null : response.json();
+}
+
+function noteItem(note) {
+  const item = document.createElement('li');
+  const title = document.createElement('strong');
+  const body = document.createElement('span');
+  const actions = document.createElement('div');
+  const edit = document.createElement('button');
+  const remove = document.createElement('button');
+  title.textContent = note.title;
+  body.textContent = note.body;
+  actions.className = 'note-actions';
+  edit.type = 'button';
+  edit.textContent = '수정';
+  remove.type = 'button';
+  remove.textContent = '삭제';
+  remove.className = 'danger';
+  actions.append(edit, remove);
+  item.append(title, body, actions);
+
+  edit.addEventListener('click', () => item.replaceChildren(noteEditor(note, item)));
+  remove.addEventListener('click', async () => {
+    if (!confirm(`「${note.title}」 메모를 삭제할까요?`)) return;
+    remove.disabled = true;
+    try {
+      await api(`/api/notes/${encodeURIComponent(note.id)}`, { method: 'DELETE' });
+      showNoteMessage('메모를 삭제했습니다.', 'ok');
+      await loadNotes();
+    } catch (error) {
+      remove.disabled = false;
+      showNoteMessage(error.message, 'error');
+    }
+  });
+  return item;
+}
+
+function noteEditor(note, item) {
+  const editor = document.createElement('form');
+  const title = document.createElement('input');
+  const body = document.createElement('textarea');
+  const save = document.createElement('button');
+  const cancel = document.createElement('button');
+  const actions = document.createElement('div');
+  editor.className = 'note-form';
+  title.value = note.title;
+  title.required = true;
+  title.maxLength = 200;
+  title.setAttribute('aria-label', '제목');
+  body.value = note.body;
+  body.maxLength = 5000;
+  body.rows = 3;
+  body.setAttribute('aria-label', '내용');
+  save.type = 'submit';
+  save.textContent = '저장';
+  cancel.type = 'button';
+  cancel.textContent = '취소';
+  actions.className = 'note-actions';
+  actions.append(save, cancel);
+  editor.append(title, body, actions);
+  cancel.addEventListener('click', () => item.replaceWith(noteItem(note)));
+  editor.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    save.disabled = true;
+    try {
+      const updated = await api(`/api/notes/${encodeURIComponent(note.id)}`, {
+        method: 'PUT', payload: { title: title.value, body: body.value },
+      });
+      item.replaceWith(noteItem(updated));
+      showNoteMessage('메모를 수정했습니다.', 'ok');
+    } catch (error) {
+      save.disabled = false;
+      showNoteMessage(error.message, 'error');
+    }
+  });
+  return editor;
+}
+
 let notesRequest = 0;
-async function loadNotes(session) {
+async function loadNotes() {
   const request = ++notesRequest;
-  if (!session?.access_token) {
+  if (!currentSession?.access_token) {
     showNotesMessage('로그인하면 자료가 보입니다.');
     return;
   }
   showNotesMessage('가상 자료를 불러오는 중입니다.');
   try {
-    const response = await fetch('/api/notes', {
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
+    const notes = await api('/api/notes');
     if (request !== notesRequest) return;
-    if (response.status === 401) throw new Error('로그인을 확인하지 못해 자료를 보여 줄 수 없습니다. 다시 로그인해 주세요.');
-    if (!response.ok) throw new Error('서버에서 자료를 읽을 수 없습니다.');
-    const data = await response.json();
-    if (!Array.isArray(data.notes)) throw new Error('자료 형식이 맞지 않습니다.');
-    list.replaceChildren(...data.notes.map((note) => {
-      const item = document.createElement('li');
-      const title = document.createElement('strong');
-      const content = document.createElement('span');
-      title.textContent = note.title;
-      content.textContent = note.content;
-      item.append(title, content);
-      return item;
-    }));
+    if (!Array.isArray(notes)) throw new Error('자료 형식이 맞지 않습니다.');
+    if (!notes.length) showNotesMessage('아직 메모가 없습니다. 위에서 추가해 보세요.');
+    else list.replaceChildren(...notes.map(noteItem));
   } catch (error) {
     if (request === notesRequest) showNotesMessage(error.message);
   }
 }
+
+addForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  addSubmit.disabled = true;
+  try {
+    await api('/api/notes', { method: 'POST', payload: { title: addTitle.value, body: addBody.value } });
+    addForm.reset();
+    showNoteMessage('메모를 추가했습니다.', 'ok');
+    await loadNotes();
+  } catch (error) {
+    showNoteMessage(error.message, 'error');
+  } finally {
+    addSubmit.disabled = false;
+  }
+});
 
 function render(session) {
   const user = session?.user;
@@ -89,14 +193,17 @@ function render(session) {
   who.textContent = user?.email ?? '';
   status.textContent = user ? '로그인됨' : '로그인하지 않음';
   status.dataset.state = user ? 'in' : 'out';
+  notesPanel.hidden = !user;
+  if (!user) showNoteMessage('', 'info');
 }
 
 let shownToken = Symbol('not-loaded');
 function update(session) {
   render(session);
+  currentSession = session ?? null;
   if (session?.access_token === shownToken) return;
   shownToken = session?.access_token;
-  loadNotes(session);
+  loadNotes();
 }
 
 if (!SUPABASE_PUBLISHABLE_KEY) {
