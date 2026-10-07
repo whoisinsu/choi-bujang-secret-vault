@@ -1,8 +1,7 @@
-// 3단계: /api/notes 경로들이 함께 쓰는 로그인 검사와 Supabase REST 호출입니다.
+// /api/notes 경로들이 함께 쓰는 로그인 검사와 Supabase REST 호출입니다.
 // 로그인 여부는 시작 틀의 src/verify-login.mjs가 확인한 사용자 ID만 믿습니다.
 // 브라우저가 보낸 userId·role·owner_id는 쓰지 않습니다.
-// 아직 소유자 검사는 하지 않습니다. 한 건 조회·수정·삭제는 로그인만 확인하므로
-// 다른 계정의 메모도 id만 알면 바뀝니다. 이 허점은 4단계에서 막습니다.
+// 4단계: 모든 읽기·추가·수정·삭제는 확인된 사용자 ID와 DB의 owner_id가 같은 행에만 적용합니다.
 // SUPABASE_SECRET_KEY는 서버 전용입니다. 응답·로그·브라우저 파일에 값을 넣지 않습니다.
 import { readFileSync } from 'node:fs';
 import { createLoginVerifier } from './verify-login.mjs';
@@ -52,7 +51,23 @@ export async function requireUser(request, key) {
   return principal.userId;
 }
 
-// 제목·본문만 받습니다. 본문에 owner_id·userId·role이 있어도 무시합니다.
+// 본문에 소유자를 가리키는 값이 있는지 봅니다. 확인된 사용자와 다른 값이면 소유자 변경 시도입니다.
+const OWNER_FIELDS = ['owner_id', 'ownerId', 'owner', 'userId', 'user_id'];
+export function requestsOtherOwner(request, userId) {
+  let input = request.body;
+  if (typeof input === 'string') {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      return false;
+    }
+  }
+  if (!input || typeof input !== 'object') return false;
+  return OWNER_FIELDS.some((field) => Object.hasOwn(input, field)
+    && String(input[field]).toLowerCase() !== userId.toLowerCase());
+}
+
+// 제목·본문만 받습니다. 본문에 owner_id·userId·role이 있어도 저장에 쓰지 않습니다.
 export function readNoteInput(request) {
   let input = request.body;
   if (typeof input === 'string') {
