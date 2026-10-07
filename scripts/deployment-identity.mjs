@@ -28,5 +28,8 @@ export function deploymentIdentity(env, config) {
     judgeIssuer: config.judgeIssuer,
     // 시작 틀 확인 표시는 1단계 공개 자료에만 둡니다. 2단계부터 정적 응답에서 뺍니다.
     ...(config.step === 1 ? { sampleMarker: config.sampleMarker } : {}),
+    // 3단계부터 허용한 자료 API 경로(메서드와 경로)를 함께 공개합니다. 문자열만 옮깁니다.
+    ...(config.step >= 3 && Array.isArray(config.allowedRoutes)
+      ? { allowedRoutes: config.allowedRoutes.filter((route) => typeof route === 'string') } : {}),
   };
 }

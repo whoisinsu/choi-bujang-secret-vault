@@ -60,7 +60,7 @@ git grep -cE "$Q" 4f07b71
 
 ## 3단계: 진짜 로그인
 
-- 로그인: 화면(`public/auth.js`)은 공식 `supabase-js`의 `signInWithPassword`·`signOut`으로 Supabase Auth 이메일·비밀번호 로그인과 로그아웃을 합니다. 실패하면 이유를 화면에 보여 줍니다. 브라우저에는 공개용 Project URL과 publishable key만 있습니다.
+- 로그인: 화면(`public/auth.js`)은 공식 `supabase-js`의 `signInWithPassword`·`signOut`으로 Supabase Auth 이메일·비밀번호 로그인과 로그아웃을 합니다. 실패하면 이유를 화면에 보여 줍니다. 3·4단계 당시 브라우저에는 공개용 Project URL과 publishable key만 있었습니다(5단계에서 서버 함수로 옮김).
 - 서버 검사: 자료 API는 `Authorization: Bearer` 토큰을 시작 틀 `src/verify-login.mjs`로 검사합니다(`src/notes-api.mjs`). 토큰이 없거나 검사에 실패하면 자료 없이 401 `LOGIN_REQUIRED`입니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 쓰지 않습니다.
 - 자료 API(`aleph.config.json`의 `allowedRoutes`와 같음):
   - `GET /api/notes`: 서버가 확인한 사용자의 메모 배열 `[{id,title,body}]`
@@ -87,7 +87,8 @@ git grep -cE "$Q" 4f07b71
 
 ## 5단계: 자료 요청을 서버 한곳으로
 
-- 브라우저 코드(`public/auth.js`)는 Supabase를 로그인·로그아웃(`supabase.auth.*`)에만 씁니다. 메모 읽기·추가·수정·삭제는 모두 Vercel 서버 함수 `/api/notes`, `/api/notes/:id`를 거칩니다. 확인해 보니 바꿀 직접 자료 호출은 없었습니다.
+- 브라우저 코드(`public/auth.js`)에는 Supabase 주소·키·SDK가 없습니다. 메모 읽기·추가·수정·삭제는 Vercel 서버 함수 `/api/notes`, `/api/notes/:id`를, 로그인·토큰 갱신·로그아웃은 서버 함수 `POST /api/auth/login`(`{email,password}`), `POST /api/auth/refresh`(`{refresh_token}`), `POST /api/auth/logout`(Bearer)을 부릅니다. 서버(`src/auth-proxy.mjs`)가 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`로 Supabase Auth에 대신 요청하고, 토큰·만료 시각·이메일만 돌려줍니다. 비밀번호와 토큰은 저장하거나 로그에 남기지 않으며, 서버 전용 secret key는 Auth 호출에 쓰지 않습니다. 브라우저는 세션을 `localStorage`의 `vault-session`에 두고 만료 60초 전이나 401 때 한 번 갱신합니다.
+- `/aleph.json`에는 3단계부터 `aleph.config.json`의 `allowedRoutes`가 함께 기록됩니다(`scripts/deployment-identity.mjs`).
 - DB 권한(`supabase/step5_revoke.sql`, `public.notes`만): `PUBLIC`·`anon`·`authenticated`의 직접 권한을 모두 거뒀습니다. RLS와 4단계 정책은 켠 채로 둡니다. 실행 결과의 적용 전후 대조표에서 `authenticated`의 SELECT·INSERT·UPDATE·DELETE가 사라지고 세 역할 모두 권한이 없으며, 서버 전용 역할(service_role)은 읽기·쓰기를 유지하는 것을 확인했습니다.
 - 서버 함수의 로그인 검사(`src/verify-login.mjs`)와 소유자 대조, 서버 전용 환경변수는 그대로입니다.
 - 원본 자료 경로: `aleph.config.json`의 `originalApiUrl`은 `https://skevbebxatwbmomeoqtx.supabase.co/rest/v1/notes`입니다. 공개용 anon 키로 이 경로에 읽기·쓰기를 보내면 401 `permission denied`입니다.
@@ -95,7 +96,7 @@ git grep -cE "$Q" 4f07b71
 - 다시 확인하는 방법: A로 로그인한 브라우저 Console에서 `/api/notes` 목록 GET, POST, `/api/notes/:id` GET·PUT·DELETE, 지운 뒤 GET을 보내면 200·201·200·200·204·404입니다(권한 회수 전후 모두 확인). 화면의 A·B 동작도 4단계와 같습니다.
 - 제출 묶음: 자기 점검은 로그인 없는 요청·위조 토큰·anon 키로 `originalApiUrl`에 보낸 직접 요청의 결과만 기록합니다. 로그인 토큰을 점검 코드에 넣지 않으므로 B의 A 메모 접근은 자동 점검에서 미실행으로 남깁니다. 심판 판정이 아닙니다.
 
-**남은 점:** `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다. 2단계 `vault_notes` 테이블은 화면에서 쓰지 않지만 남아 있습니다(`anon`·`authenticated` 권한 회수, `PUBLIC` 회수는 하지 않음). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
+**남은 점:** 로그인이 서버 함수를 거치므로 Supabase Auth의 요청 한도가 Vercel 서버 주소 기준으로 함께 적용됩니다. `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다. 2단계 `vault_notes` 테이블은 화면에서 쓰지 않지만 남아 있습니다(`anon`·`authenticated` 권한 회수, `PUBLIC` 회수는 하지 않음). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
