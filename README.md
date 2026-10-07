@@ -21,10 +21,10 @@
 ## 2단계: 자료를 코드 밖으로 옮김
 
 - 가상 메모 네 건은 학습용 Supabase 테이블 `public.vault_notes`에 있습니다. RLS를 켰고 `anon`·`authenticated`에는 읽기 권한이 없습니다. 테이블을 만든 SQL은 메모 문장을 담고 있어 Git에서 제외했습니다.
-- `data.json`과 `public/data.json`에는 메모가 없습니다(`"notes": []`).
+- `public/data.json`은 지웠습니다. 배포의 `/data.json`은 404이고, 시작 틀 확인 표시 `SAMPLE_NOTE_1`도 정적 응답(`/data.json`, `/aleph.json`)에 남기지 않습니다. 저장소 루트의 `data.json`은 1단계 빌드용으로만 남아 있으며 메모는 없습니다(`"notes": []`).
 - 화면(`/`)은 서버 함수 `GET /api/notes`(`api/notes.js`)를 불러 메모를 보여 줍니다. 함수는 Vercel 환경변수 `SUPABASE_URL`과 서버 전용 `SUPABASE_SECRET_KEY`를 읽습니다. 값은 Vercel의 비밀 입력란에만 넣고 코드·Git·응답·로그에 넣지 않습니다.
-- 다시 확인하는 방법: 배포 뒤 시크릿 창에서 `/`에 카드 네 개가 보이고, `/data.json`에는 메모가 없어야 합니다.
-- 2단계 저장점: `aleph.config.json`은 `step: 2`, 실제 저장소 주소, 실제 배포 주소(`https://choi-bujang-secret-vault-blue-tau.vercel.app`)로 맞췄습니다. 로그인 발급자·허용 경로·원본 API 주소는 아직 구현하지 않아 비어 있습니다. 빌드(`npm run build`)는 2단계부터 `data.json`을 복사하지 않고, `public/data.json`에 메모가 있으면 멈춥니다. `public/aleph.json`에는 설정의 단계가 기록됩니다.
+- 다시 확인하는 방법: 배포 뒤 시크릿 창에서 `/`에 카드 네 개가 보이고, `/data.json`은 404여야 합니다.
+- 2단계 저장점: `aleph.config.json`은 `step: 2`, 실제 저장소 주소, 실제 배포 주소(`https://choi-bujang-secret-vault-blue-tau.vercel.app`)로 맞췄습니다. 로그인 발급자·허용 경로·원본 API 주소는 아직 구현하지 않아 비어 있습니다. 빌드(`npm run build`)는 2단계부터 `data.json`을 복사하지 않고, `public/data.json`이 있으면 멈춥니다. `public/aleph.json`에는 설정의 단계가 기록되고, `sampleMarker`는 1단계에서만 기록됩니다. 모든 응답에 `X-Content-Type-Options: nosniff` 헤더가 붙습니다(`vercel.json`).
 - 제출 묶음: 커밋 뒤 `bundle-notes.json`(Git 제외)에 설명을 적고 `npm run bundle`을 실행합니다. 자기 점검(`src/attack-check.mjs`)은 비로그인으로 `/data.json`과 `/api/notes`를 요청해 메모 건수만 기록합니다. 심판 판정이 아닙니다.
 
 **남은 약점:** `/api/notes`는 아직 로그인 검사가 없는 공개 주소입니다. 누구나 이 주소를 직접 불러 가상 메모 네 건을 받을 수 있습니다. 키를 서버로 옮겼을 뿐 접근 제한은 아직 없으며, 3단계 로그인에서 막아야 합니다. 이전 공개 커밋과 배포 이력에 남은 메모도 지워지지 않았습니다.
@@ -38,6 +38,8 @@ U=https://choi-bujang-secret-vault-blue-tau.vercel.app
 Q='실습용 가상 [가-힣]+ 기록'
 # 1) 현재 배포의 정적 파일: 각 줄이 0이어야 합니다.
 for p in / /data.json /aleph.json; do echo "$p $(curl -s "$U$p" | grep -cE "$Q")"; done
+# 1-1) 시작 틀 확인 표시: 각 줄이 0이어야 하고, /data.json은 404여야 합니다.
+for p in / /data.json /aleph.json; do echo "$p $(curl -s -o /dev/null -w '%{http_code}' "$U$p") $(curl -s "$U$p" | grep -c 'SAMPLE_NOTE_1')"; done
 # 2) GitHub 최신 파일: 아무것도 나오지 않아야 합니다.
 git fetch origin && git grep -nE "$Q" origin/main
 # 3) 공개 API: 3단계 전까지는 4가 나옵니다. 남은 약점이며 정상 차단이 아닙니다.

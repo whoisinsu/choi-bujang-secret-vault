@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { deploymentIdentity } from './deployment-identity.mjs';
@@ -15,12 +16,11 @@ if (config.step === 1) {
   await copyFile(source, output);
   console.log('실습용 공개 자료를 public/data.json에 복사했습니다.');
 } else {
-  // 2단계부터 메모는 서버 API(/api/notes)로만 읽습니다. 정적 파일에 메모를 두면 빌드를 멈춥니다.
-  const published = JSON.parse(await readFile(output, 'utf8'));
-  if (!Array.isArray(published.notes) || published.notes.length) {
-    throw new Error('2단계부터 public/data.json에 메모를 남기지 마세요.');
+  // 2단계부터 메모는 서버 API(/api/notes)로만 읽습니다. 정적 public/data.json이 있으면 빌드를 멈춥니다.
+  if (existsSync(output)) {
+    throw new Error('2단계부터 public/data.json을 두지 마세요. 메모와 확인 표시는 정적 파일에 남기지 않습니다.');
   }
-  console.log('public/data.json에 메모가 없음을 확인했습니다. 메모는 /api/notes로 읽습니다.');
+  console.log('public/data.json이 없음을 확인했습니다. 메모는 /api/notes로 읽습니다.');
 }
 if (!process.argv.includes('--local')) {
   const identity = deploymentIdentity(process.env, config);

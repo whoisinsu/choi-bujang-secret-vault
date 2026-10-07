@@ -56,8 +56,9 @@ async function runStep2Checks(app) {
   const staticFile = await anonymousNoteCount(app, '/data.json');
   const api = await anonymousNoteCount(app, '/api/notes');
   return [
-    { attackId: 'anonymous_static_note_read', expected: '비로그인으로 /data.json을 열어도 가상 메모가 없음',
-      observed: `비로그인 요청 HTTP ${staticFile.status}, 메모 ${staticFile.count ?? '확인 불가'}건` },
+    { attackId: 'anonymous_static_note_read', expected: '비로그인으로 /data.json을 열면 404이거나 가상 메모가 없음',
+      observed: staticFile.status === 404 ? '비로그인 요청 HTTP 404, 정적 자료 파일 없음'
+        : `비로그인 요청 HTTP ${staticFile.status}, 메모 ${staticFile.count ?? '확인 불가'}건` },
     { attackId: 'anonymous_api_note_read', expected: '3단계 전까지 남은 약점: 비로그인 /api/notes 요청이 아직 거부되지 않음',
       observed: `비로그인 요청 HTTP ${api.status}, 메모 ${api.count ?? '확인 불가'}건` },
   ];

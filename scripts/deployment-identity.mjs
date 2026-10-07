@@ -26,6 +26,7 @@ export function deploymentIdentity(env, config) {
     commit: commit.toLowerCase(),
     publicAppUrl: `https://${host.toLowerCase()}`,
     judgeIssuer: config.judgeIssuer,
-    sampleMarker: config.sampleMarker,
+    // 시작 틀 확인 표시는 1단계 공개 자료에만 둡니다. 2단계부터 정적 응답에서 뺍니다.
+    ...(config.step === 1 ? { sampleMarker: config.sampleMarker } : {}),
   };
 }
