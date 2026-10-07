@@ -16,6 +16,21 @@
     li { border: 1px solid #51667c; border-radius: 14px; padding: 17px 19px; background: #1a2a3d; }
     strong { display: block; font-size: 18px; margin-bottom: 5px; }
     li span { color: #bfd0e5; }
+    [hidden] { display: none !important; }
+    .auth { margin: 26px 0; padding: 18px 19px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+    .auth h2 { margin: 0 0 12px; font-size: 18px; display: flex; gap: 10px; align-items: center; }
+    .auth-status { font-size: 13px; padding: 3px 9px; border-radius: 999px; background: #51667c55; color: #bfd0e5; }
+    .auth-status[data-state="in"] { background: #2b8a6e55; color: #b6f0dc; }
+    .auth form { display: grid; gap: 10px; }
+    .auth label { display: grid; gap: 4px; font-size: 14px; color: #bfd0e5; }
+    .auth input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #51667c; background: #101a28; color: #ecf4ff; }
+    .auth button { font: inherit; font-weight: 700; padding: 10px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; cursor: pointer; justify-self: start; }
+    .auth button:disabled { opacity: .5; cursor: default; }
+    .auth-signed-in { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    .auth-signed-in span { overflow-wrap: anywhere; }
+    .auth-message { margin: 12px 0 0; font-size: 15px; }
+    .auth-message[data-kind="error"] { color: #ffb3c0; }
+    .auth-message[data-kind="ok"] { color: #b6f0dc; }
   </style>
 </head>
 <body>
@@ -24,8 +39,22 @@
     <h1>점령된 자료실</h1>
     <p>자료는 이제 정적 파일이 아니라 서버 API로 읽습니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
     <div class="notice">아직 로그인 검사가 없어 누구나 /api/notes를 부를 수 있습니다. 다음 제작 단계에서 접근을 막아 주세요.</div>
+    <section class="auth" aria-labelledby="auth-title">
+      <h2 id="auth-title">로그인 <span id="auth-status" class="auth-status" data-state="out">확인하는 중</span></h2>
+      <form id="login-form" hidden>
+        <label>이메일 <input id="login-email" type="email" autocomplete="username" required></label>
+        <label>비밀번호 <input id="login-password" type="password" autocomplete="current-password" required></label>
+        <button id="login-submit" type="submit">로그인</button>
+      </form>
+      <div id="signed-in" class="auth-signed-in" hidden>
+        <span><span id="signed-in-email"></span> 계정으로 로그인했습니다.</span>
+        <button id="logout" type="button">로그아웃</button>
+      </div>
+      <p id="auth-message" class="auth-message" role="status" hidden></p>
+    </section>
     <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
   </main>
+  <script type="module" src="/auth.js"></script>
   <script type="module">
     const list = document.querySelector('#notes');
     try {
