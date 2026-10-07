@@ -1,6 +1,18 @@
-// 2단계: 학습용 Supabase의 vault_notes에서 가상 메모를 서버에서 읽어 돌려줍니다.
+// 3단계: 로그인 토큰을 시작 틀의 src/verify-login.mjs로 검사한 뒤에만 가상 메모를 돌려줍니다.
+// 브라우저가 보낸 userId·role·쿼리·본문은 쓰지 않고, Authorization 헤더의 토큰 검사 결과만 믿습니다.
 // SUPABASE_SECRET_KEY는 서버 전용입니다. 응답·로그·브라우저 파일에 값을 넣지 않습니다.
-// 아직 로그인 검사가 없어 누구나 이 주소를 부를 수 있습니다. 3단계에서 막습니다.
+// 다른 계정의 자료를 막는 일(owner_id 대조)은 4단계에서 합니다.
+import { readFileSync } from 'node:fs';
+import { createLoginVerifier } from '../src/verify-login.mjs';
+
+const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
+let verifyLogin;
+
+function loginVerifier(key) {
+  verifyLogin ??= createLoginVerifier({ config, supabaseSecretKey: key });
+  return verifyLogin;
+}
+
 export default async function handler(request, response) {
   response.setHeader('Cache-Control', 'no-store');
   if (request.method !== 'GET') {
@@ -17,6 +29,17 @@ export default async function handler(request, response) {
   if (!base || base.protocol !== 'https:' || !key) {
     console.error('notes: SUPABASE_URL 또는 SUPABASE_SECRET_KEY 환경변수가 없습니다.');
     return response.status(500).json({ error: 'SERVER_NOT_CONFIGURED' });
+  }
+  let principal;
+  try {
+    principal = await loginVerifier(key)(request.headers?.authorization);
+  } catch (error) {
+    console.error(`notes: 로그인 검사 설정 오류 (${error.message})`);
+    return response.status(500).json({ error: 'SERVER_NOT_CONFIGURED' });
+  }
+  if (!principal) {
+    response.setHeader('WWW-Authenticate', 'Bearer');
+    return response.status(401).json({ error: 'LOGIN_REQUIRED' });
   }
   try {
     const upstream = await fetch(new URL('/rest/v1/vault_notes?select=title,content&order=id', base), {

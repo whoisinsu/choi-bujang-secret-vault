@@ -16,6 +16,7 @@ const who = document.querySelector('#signed-in-email');
 const logout = document.querySelector('#logout');
 const status = document.querySelector('#auth-status');
 const message = document.querySelector('#auth-message');
+const list = document.querySelector('#notes');
 
 const REASONS = {
   invalid_credentials: '이메일 또는 비밀번호가 맞지 않습니다.',
@@ -41,6 +42,46 @@ function failureReason(error) {
   return error.code ? `${reason} (${error.code})` : reason;
 }
 
+function showNotesMessage(text) {
+  const item = document.createElement('li');
+  item.textContent = text;
+  list.replaceChildren(item);
+}
+
+// 메모는 로그인 세션의 access token을 Authorization 헤더에 실어 서버에 요청합니다.
+// 사용자 ID나 역할은 보내지 않습니다. 서버가 토큰만 검사해 판단합니다.
+let notesRequest = 0;
+async function loadNotes(session) {
+  const request = ++notesRequest;
+  if (!session?.access_token) {
+    showNotesMessage('로그인하면 자료가 보입니다.');
+    return;
+  }
+  showNotesMessage('가상 자료를 불러오는 중입니다.');
+  try {
+    const response = await fetch('/api/notes', {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (request !== notesRequest) return;
+    if (response.status === 401) throw new Error('로그인을 확인하지 못해 자료를 보여 줄 수 없습니다. 다시 로그인해 주세요.');
+    if (!response.ok) throw new Error('서버에서 자료를 읽을 수 없습니다.');
+    const data = await response.json();
+    if (!Array.isArray(data.notes)) throw new Error('자료 형식이 맞지 않습니다.');
+    list.replaceChildren(...data.notes.map((note) => {
+      const item = document.createElement('li');
+      const title = document.createElement('strong');
+      const content = document.createElement('span');
+      title.textContent = note.title;
+      content.textContent = note.content;
+      item.append(title, content);
+      return item;
+    }));
+  } catch (error) {
+    if (request === notesRequest) showNotesMessage(error.message);
+  }
+}
+
 function render(session) {
   const user = session?.user;
   form.hidden = Boolean(user);
@@ -50,16 +91,25 @@ function render(session) {
   status.dataset.state = user ? 'in' : 'out';
 }
 
+let shownToken;
+function update(session) {
+  render(session);
+  if (session?.access_token === shownToken) return;
+  shownToken = session?.access_token;
+  loadNotes(session);
+}
+
 if (!SUPABASE_PUBLISHABLE_KEY) {
-  render(null);
+  update(null);
   submit.disabled = true;
   showMessage('로그인 설정이 아직 없습니다. public/auth.js에 publishable key를 넣어 주세요.', 'error');
 } else {
   const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-  supabase.auth.onAuthStateChange((_event, session) => render(session));
+  // 콜백 안에서 Supabase를 다시 기다리지 않도록 화면 갱신은 다음 차례로 넘깁니다.
+  supabase.auth.onAuthStateChange((_event, session) => setTimeout(() => update(session), 0));
   const { data } = await supabase.auth.getSession();
-  render(data.session);
+  update(data.session);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
