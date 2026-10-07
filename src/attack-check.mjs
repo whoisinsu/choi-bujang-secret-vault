@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -16,6 +16,7 @@ export async function runAttackChecks(config) {
   if (config.step === 2) return runStep2Checks(app);
   if (config.step === 3) return runStep3Checks(app);
   if (config.step === 4) return runStep4Checks(app, config);
+  if (config.step === 5) return runStep4Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -124,14 +125,15 @@ async function runStep3Checks(app) {
 const ANON_KEY = 'sb_publishable_zbvLeuDU_gLzfhjV-CwlFg_eXRUOOM9';
 const A_NOTE_ID = 'ca9ea280-7182-4291-96ab-9aeedb38c32b';
 
+// 5단계부터는 aleph.config.json의 originalApiUrl(원본 자료 경로)에 그대로 보냅니다.
 async function anonDataApi(config, method) {
-  let issuer;
+  let url;
   try {
-    issuer = new URL(config.identityProvider.issuer);
+    url = config.originalApiUrl ? new URL(config.originalApiUrl)
+      : new URL('/rest/v1/notes', new URL(config.identityProvider.issuer).origin);
   } catch {
-    return '요청 실패(identityProvider.issuer 없음)';
+    return '요청 실패(원본 자료 주소 없음)';
   }
-  const url = new URL('/rest/v1/notes', issuer.origin);
   url.search = method === 'POST' ? '' : method === 'GET' ? 'select=id&limit=1' : `id=eq.${A_NOTE_ID}`;
   try {
     const response = await fetch(url, {
@@ -159,7 +161,7 @@ async function runStep4Checks(app, config) {
   for (const method of ['GET', 'POST', 'PATCH', 'DELETE']) anon[method] = await anonDataApi(config, method);
   return [
     ...step3,
-    { attackId: 'anon_data_api_select', expected: 'anon 키로 Data API notes SELECT는 권한 없음(401·403)',
+    { attackId: 'anon_data_api_select', expected: 'anon 키로 원본 자료 API(notes) SELECT는 권한 없음(401·403)',
       observed: `anon 키 직접 요청 ${anon.GET}` },
     { attackId: 'anon_data_api_insert', expected: 'anon 키로 Data API notes INSERT는 권한 없음(401·403)',
       observed: `anon 키 직접 요청 ${anon.POST}` },

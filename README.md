@@ -83,7 +83,19 @@ git grep -cE "$Q" 4f07b71
 - 다시 확인하는 방법: A로 로그인하면 가상 메모 네 건만, B로 로그인하면 B 시험 메모만 보이고 각자 추가·수정·삭제가 됩니다. B로 로그인한 브라우저에서 A 메모 id로 `GET·PUT·DELETE /api/notes/:id`를 보내면 모두 404이고 A 메모는 그대로입니다. 공개용 anon 키로 `https://skevbebxatwbmomeoqtx.supabase.co/rest/v1/notes`에 직접 읽기·쓰기를 보내면 401 `permission denied`입니다.
 - 제출 묶음: 자기 점검은 로그인 없는 요청·위조 토큰·anon 키 Data API 직접 요청의 결과만 기록합니다. 로그인 토큰을 점검 코드에 넣지 않으므로 B의 A 메모 접근은 자동 점검에서 미실행으로 남기고, 브라우저에서 직접 확인한 결과는 설명에 적습니다. 심판 판정이 아닙니다.
 
-**남은 점:** `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다(내용은 나가지 않음). `authenticated` 역할로 Data API에 직접 접근하는 경로는 RLS로 본인 행만 허용하지만 심판이 재현할 수 없어 점수에서 제외됩니다. 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
+**남은 점:** `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다(내용은 나가지 않음). `authenticated` 역할로 Data API에 직접 접근하는 경로는 RLS로 본인 행만 허용했습니다(5단계에서 직접 권한을 거둠). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
+
+## 5단계: 자료 요청을 서버 한곳으로
+
+- 브라우저 코드(`public/auth.js`)는 Supabase를 로그인·로그아웃(`supabase.auth.*`)에만 씁니다. 메모 읽기·추가·수정·삭제는 모두 Vercel 서버 함수 `/api/notes`, `/api/notes/:id`를 거칩니다. 확인해 보니 바꿀 직접 자료 호출은 없었습니다.
+- DB 권한(`supabase/step5_revoke.sql`, `public.notes`만): `PUBLIC`·`anon`·`authenticated`의 직접 권한을 모두 거뒀습니다. RLS와 4단계 정책은 켠 채로 둡니다. 실행 결과의 적용 전후 대조표에서 `authenticated`의 SELECT·INSERT·UPDATE·DELETE가 사라지고 세 역할 모두 권한이 없으며, 서버 전용 역할(service_role)은 읽기·쓰기를 유지하는 것을 확인했습니다.
+- 서버 함수의 로그인 검사(`src/verify-login.mjs`)와 소유자 대조, 서버 전용 환경변수는 그대로입니다.
+- 원본 자료 경로: `aleph.config.json`의 `originalApiUrl`은 `https://skevbebxatwbmomeoqtx.supabase.co/rest/v1/notes`입니다. 공개용 anon 키로 이 경로에 읽기·쓰기를 보내면 401 `permission denied`입니다.
+- 5단계 저장점: `aleph.config.json`은 `step: 5`입니다.
+- 다시 확인하는 방법: A로 로그인한 브라우저 Console에서 `/api/notes` 목록 GET, POST, `/api/notes/:id` GET·PUT·DELETE, 지운 뒤 GET을 보내면 200·201·200·200·204·404입니다(권한 회수 전후 모두 확인). 화면의 A·B 동작도 4단계와 같습니다.
+- 제출 묶음: 자기 점검은 로그인 없는 요청·위조 토큰·anon 키로 `originalApiUrl`에 보낸 직접 요청의 결과만 기록합니다. 로그인 토큰을 점검 코드에 넣지 않으므로 B의 A 메모 접근은 자동 점검에서 미실행으로 남깁니다. 심판 판정이 아닙니다.
+
+**남은 점:** `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다. 2단계 `vault_notes` 테이블은 화면에서 쓰지 않지만 남아 있습니다(`anon`·`authenticated` 권한 회수, `PUBLIC` 회수는 하지 않음). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
