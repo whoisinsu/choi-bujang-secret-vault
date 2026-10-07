@@ -16,7 +16,7 @@
 
 `aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 이전 제출 묶음 방식의 자리표시자입니다. 1단계에서는 학생이 편집하지 않습니다. 2단계 이후 코딩 도구가 필요한 설정과 보호 기능을 단계별로 작성합니다. `npm run bundle`과 `bundle-notes.json`도 1단계의 세 걸음에는 포함되지 않습니다.
 
-로컬에서 가상 화면만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `/data.json`을 비로그인으로 요청해 공개 가상 메모의 확인 표시를 읽습니다.
+로컬에서 가상 화면만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 1단계 당시 `src/attack-check.mjs`는 실제 배포가 된 뒤 `/data.json`을 비로그인으로 요청해 공개 가상 메모의 확인 표시를 읽었습니다. 현재 단계의 점검은 아래 단계별 절을 보세요.
 
 ## 2단계: 자료를 코드 밖으로 옮김
 
@@ -27,7 +27,7 @@
 - 2단계 저장점: `aleph.config.json`은 `step: 2`, 실제 저장소 주소, 실제 배포 주소(`https://choi-bujang-secret-vault-blue-tau.vercel.app`)로 맞췄습니다. 로그인 발급자·허용 경로·원본 API 주소는 아직 구현하지 않아 비어 있습니다. 빌드(`npm run build`)는 2단계부터 `data.json`을 복사하지 않고, `public/data.json`이 있으면 멈춥니다. `public/aleph.json`에는 설정의 단계가 기록되고, `sampleMarker`는 1단계에서만 기록됩니다. 모든 응답에 `X-Content-Type-Options: nosniff` 헤더가 붙습니다(`vercel.json`).
 - 제출 묶음: 커밋 뒤 `bundle-notes.json`(Git 제외)에 설명을 적고 `npm run bundle`을 실행합니다. 자기 점검(`src/attack-check.mjs`)은 비로그인으로 `/data.json`과 `/api/notes`를 요청해 메모 건수만 기록합니다. 심판 판정이 아닙니다.
 
-**남은 약점:** `/api/notes`는 아직 로그인 검사가 없는 공개 주소입니다. 누구나 이 주소를 직접 불러 가상 메모 네 건을 받을 수 있습니다. 키를 서버로 옮겼을 뿐 접근 제한은 아직 없으며, 3단계 로그인에서 막아야 합니다. 이전 공개 커밋과 배포 이력에 남은 메모도 지워지지 않았습니다.
+**2단계 당시 남은 약점(3단계에서 로그인 검사로 막음):** `/api/notes`는 아직 로그인 검사가 없는 공개 주소였습니다. 누구나 이 주소를 직접 불러 가상 메모 네 건을 받을 수 있습니다. 키를 서버로 옮겼을 뿐 접근 제한은 아직 없으며, 3단계 로그인에서 막아야 합니다. 이전 공개 커밋과 배포 이력에 남은 메모도 지워지지 않았습니다.
 
 ### 가상 메모 문장 검색 절차
 
@@ -42,7 +42,7 @@ for p in / /data.json /aleph.json; do echo "$p $(curl -s "$U$p" | grep -cE "$Q")
 for p in / /data.json /aleph.json; do echo "$p $(curl -s -o /dev/null -w '%{http_code}' "$U$p") $(curl -s "$U$p" | grep -c 'SAMPLE_NOTE_1')"; done
 # 2) GitHub 최신 파일: 아무것도 나오지 않아야 합니다.
 git fetch origin && git grep -nE "$Q" origin/main
-# 3) 공개 API: 3단계 전까지는 4가 나옵니다. 남은 약점이며 정상 차단이 아닙니다.
+# 3) 자료 API를 로그인 없이: 3단계부터 0이어야 합니다(401 응답). 2단계 당시에는 4였습니다.
 curl -s "$U/api/notes" | grep -oE "$Q" | wc -l
 # 4) 옛 공개 커밋: 문장이 그대로 나옵니다. 과거 노출 기록입니다.
 git grep -cE "$Q" 4f07b71
@@ -50,13 +50,28 @@ git grep -cE "$Q" 4f07b71
 
 `/`는 화면 틀만 내려받으므로 0이 정상입니다. 화면의 카드 네 개는 브라우저가 `/api/notes`에서 받아 그린 것입니다. `supabase/step2_vault_notes.sql`은 Git에서 제외한 로컬 파일이라 2)의 검색 대상이 아닙니다.
 
-### 확인 기록 (2026-10-07, 최신 커밋 `bdbe299`)
+### 2단계 확인 기록 (2026-10-07, 당시 커밋 `bdbe299`)
 
 **정적 파일 검색 결과:** 현재 배포의 `/`, `/data.json`, `/aleph.json`에서 각각 0건, GitHub `origin/main`에서 0건입니다. 최신 정적 파일과 최신 GitHub 파일에는 가상 메모 문장이 없습니다.
 
 **공개 API의 남은 약점:** `/api/notes`는 로그인 없이 200으로 응답하고 가상 메모 네 건(문장 4건)을 돌려줍니다. 자료가 정적 파일에서 서버 API로 옮겨졌을 뿐, 누구나 읽을 수 있는 상태는 그대로입니다.
 
 **과거 노출은 해소되지 않았습니다:** 공개 저장소의 옛 커밋 `4f07b71`의 `data.json`·`public/data.json`에 문장이 남아 있고, 커밋 주소로 로그인 없이 받을 수 있습니다. 커밋 `c12b512` 이전에는 배포 주소의 `/data.json`이 메모를 공개했으므로 그사이 복사된 사본은 확인할 수 없습니다. 옛 개별 배포 주소는 지금 Vercel 로그인을 요구하지만 배포 자체는 남아 있습니다. 위 두 검색이 0건이어도 과거 노출이 사라졌다는 뜻이 아닙니다.
+
+## 3단계: 진짜 로그인
+
+- 로그인: 화면(`public/auth.js`)은 공식 `supabase-js`의 `signInWithPassword`·`signOut`으로 Supabase Auth 이메일·비밀번호 로그인과 로그아웃을 합니다. 실패하면 이유를 화면에 보여 줍니다. 브라우저에는 공개용 Project URL과 publishable key만 있습니다.
+- 서버 검사: 자료 API는 `Authorization: Bearer` 토큰을 시작 틀 `src/verify-login.mjs`로 검사합니다(`src/notes-api.mjs`). 토큰이 없거나 검사에 실패하면 자료 없이 401 `LOGIN_REQUIRED`입니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 쓰지 않습니다.
+- 자료 API(`aleph.config.json`의 `allowedRoutes`와 같음):
+  - `GET /api/notes`: 서버가 확인한 사용자의 메모 배열 `[{id,title,body}]`
+  - `POST /api/notes`: `{id?,title,body}`, 서버가 확인한 사용자 ID를 `owner_id`로 저장하고 `201 {id}`. `id`가 없으면 서버가 UUID를 만들고, 같은 `id`는 409
+  - `GET·PUT·DELETE /api/notes/:id`: 한 건 `{id,title,body}`, 수정, 삭제(204). 없는 메모와 지운 뒤 GET은 404
+- 자료: `public.notes`(`supabase/step3_notes.sql`, RLS 켬, `anon`·`authenticated` 권한 없음). 2단계 가상 메모 네 건을 A 테스트 계정 소유로 복사했습니다. 2단계 `vault_notes` 테이블은 지우지 않았고 화면에서 더 쓰지 않습니다.
+- 3단계 저장점: `aleph.config.json`은 `step: 3`, `identityProvider`(발급자 `https://skevbebxatwbmomeoqtx.supabase.co/auth/v1`, 대상 `authenticated`, 공개키 주소)와 `allowedRoutes` 다섯 개를 적었습니다. 원본 API 주소는 5단계라 비어 있습니다.
+- 다시 확인하는 방법: 시크릿 창에서 로그인 없이 `/`를 열면 "로그인하면 자료가 보입니다."만 보이고, `curl -s -o /dev/null -w '%{http_code}' https://choi-bujang-secret-vault-blue-tau.vercel.app/api/notes`는 401입니다. A로 로그인하면 메모가 보이고 추가·수정·삭제가 됩니다. 로그아웃하면 다시 사라집니다.
+- 제출 묶음: 커밋 뒤 `bundle-notes.json`(Git 제외)을 갱신하고 `npm run bundle`을 실행합니다. 자기 점검은 로그인 없는 요청과 위조 토큰 요청의 HTTP 상태만 기록합니다. 비밀번호를 점검 코드에 넣지 않으므로 A 로그인 뒤 동작은 미실행으로 남기고 화면에서 직접 확인합니다. 심판 판정이 아닙니다.
+
+**남은 약점:** 한 건 조회·수정·삭제(`/api/notes/:id`)는 로그인만 확인하고 소유자(`owner_id`)를 대조하지 않습니다. 로그인한 B가 A 메모의 `id`를 알면 읽고 고치고 지울 수 있습니다. 4단계에서 막고 기록합니다. 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
