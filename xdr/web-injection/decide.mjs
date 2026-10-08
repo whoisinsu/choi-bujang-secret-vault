@@ -46,6 +46,19 @@ const PATTERNS = [
     partial: [/\.\.[/\\]/, /\bup\b/i],
     evidence: 'T1190 · CWE-22',
   },
+  {
+    name: 'command_injection',
+    knownForms: [
+      /[;|&]\s*(cat|ls|id|whoami|uname|wget|curl|nc|ncat|bash|sh|ping|rm|echo|powershell|cmd)\b/i,
+      /(&&|\|\|)\s*[a-z]/i,
+      /\$\([^)]*\)/,
+      /`[^`]+`/,
+    ],
+    fixtureNotation: [/\bdoc-cmd-separator\b/i],
+    descriptionHints: ['명령 구분자'],
+    partial: [/구분 문자/],
+    evidence: 'T1190 · CWE-78',
+  },
 ];
 
 // 패턴 이름이 없을 때도 T1190 경보가 "주입처럼 보인다"고 적은 경우를 일부 신호로 봅니다.

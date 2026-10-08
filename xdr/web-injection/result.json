@@ -34,9 +34,9 @@
     },
     {
       "alertId": "wi-06",
-      "action": "alert",
-      "confidence": 0.67,
-      "reason": "애매한 시도 · 근거 패턴 없음(T1190 경보만) · 반복 11회"
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "명확한 주입 · 패턴: command_injection · 반복 11회"
     },
     {
       "alertId": "wi-07",
@@ -101,8 +101,8 @@
     {
       "alertId": "wi-17",
       "action": "alert",
-      "confidence": 0.54,
-      "reason": "애매한 시도 · 근거 패턴 없음(T1190 경보만) · 반복 1회"
+      "confidence": 0.58,
+      "reason": "애매한 시도 · 패턴 일부: command_injection · 반복 1회"
     },
     {
       "alertId": "wi-18",
@@ -160,8 +160,8 @@
     }
   ],
   "counts": {
-    "block": 7,
-    "alert": 10,
+    "block": 8,
+    "alert": 9,
     "record": 9
   }
 }

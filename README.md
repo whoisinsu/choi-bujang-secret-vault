@@ -113,13 +113,13 @@ git grep -cE "$Q" 4f07b71
 
 - 경보: `xdr/fixtures/web-injection.json`(수업용 Wazuh 모양 26건, 요청 주소는 `doc-` 수업용 표기). 원본은 고치지 않습니다.
 - `xdr/web-injection/read-alerts.mjs`: 확인용. 시각·출발 주소·계정·규칙 수준·설명만 뽑고 비밀값처럼 보이는 값은 가립니다. 요청 주소의 주입 문자열은 출력하지 않습니다.
-- `xdr/web-injection/patterns.json`: 근거 MITRE ATT&CK T1190. `sql_injection`(CWE-89), `script_injection`(CWE-79), `path_traversal_repeat`(CWE-22) 세 패턴에 찾는 조건(실제 형태·수업용 표기·설명 단서·신호 아님)과 근거 한 줄을 적었습니다. 명령 구분자는 요청 범위 밖이라 제외했습니다.
+- `xdr/web-injection/patterns.json`: 근거 MITRE ATT&CK T1190. `sql_injection`(CWE-89), `script_injection`(CWE-79), `path_traversal_repeat`(CWE-22), `command_injection`(CWE-78) 네 패턴에 찾는 조건(실제 형태·수업용 표기·설명 단서·신호 아님)과 근거 한 줄을 적었습니다. 명령 주입은 `;`·`|`·`&` 뒤 명령어, `&&`·`||`, `$( )`, 백틱을 보고, URL 인자를 나누는 `&` 하나는 신호로 보지 않습니다.
 - `xdr/web-injection/decide.mjs`: 패턴을 파일 맨 위 상수로 옮겨 적고 import·파일 읽기쓰기·네트워크 없이 혼자 계산합니다. 패턴과 뚜렷하게 맞고 같은 주소에서 5회 이상 반복되면 `block`(0.85 이상), 한 번뿐이거나 일부만 맞는 T1190 경보는 `alert`(0.5 이상), 그 밖은 `record`입니다. reason에 근거 패턴 이름을 한 줄로 적습니다.
 - `xdr/web-injection/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/web-injection/deny-rules.json`(Git 제외)에 넣고, block·alert를 `moduleKey`를 붙여 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정과 정상·애매 이벤트 주소는 막지 않습니다. 판정기 `src/decider.mjs`와 `RULE_IDS`는 고치지 않았습니다.
-- 다시 실행하는 방법: `npm run xdr:run -- web-injection` → `counts`가 `{"block":7,"alert":10,"record":9}`, 정상 이벤트(wi-18~26)는 모두 `record`. `node xdr/web-injection/respond.mjs` → 거부 규칙 6개, wi-01~05·07·08 주소만 거부. `node xdr/web-injection/read-alerts.mjs` → `경보 26건 · 뽑은 줄 26줄 · 일치`.
+- 다시 실행하는 방법: `npm run xdr:run -- web-injection` → `counts`가 `{"block":8,"alert":9,"record":9}`, 명확한 공격 wi-01~08은 모두 `block`, 정상 이벤트(wi-18~26)는 모두 `record`. `node xdr/web-injection/respond.mjs` → 거부 규칙 7개, wi-01~08 주소만 거부. `node xdr/web-injection/read-alerts.mjs` → `경보 26건 · 뽑은 줄 26줄 · 일치`.
 - 격리 확인: `decide.mjs` 한 파일만 빈 폴더에 두고 환경변수를 비우고 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 26건 모두 같았습니다(가장 느린 경보 1ms).
 
-**남은 점:** wi-06(명령 구분자 11회 반복)은 `patterns.json`에 해당 패턴이 없어 `alert`로 남고 막히지 않습니다. 판정기 요청 계약에 출발 주소가 없어 거부 규칙은 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조).
+**남은 점:** 판정기 요청 계약에 출발 주소가 없어 거부 규칙은 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조).
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
