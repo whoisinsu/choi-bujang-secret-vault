@@ -98,6 +98,17 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 로그인이 서버 함수를 거치므로 Supabase Auth의 요청 한도가 Vercel 서버 주소 기준으로 함께 적용됩니다. `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다. 2단계 `vault_notes` 테이블은 화면에서 쓰지 않지만 남아 있습니다(`anon`·`authenticated` 권한 회수, `PUBLIC` 회수는 하지 않음). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
+## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
+
+- 경보: `xdr/fixtures/brute-force.json`(수업용 Wazuh 모양 28건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.
+- `xdr/brute-force/read-alerts.mjs`: 확인용. 시각·출발 주소·계정·규칙 수준·설명만 뽑고 비밀값처럼 보이는 값은 가립니다. `decide.mjs`는 불러오지 않습니다.
+- `xdr/brute-force/decide.mjs` + `patterns.mjs`: `decide(alert)`가 `{action, confidence, reason}`을 돌려줍니다. 같은 폴더의 `patterns.mjs`만 불러오고 내장 모듈·npm 패키지·JSON·네트워크·환경변수를 쓰지 않습니다. 수준 10 이상이고 strong 패턴(`burst_failures`, `password_spray`, `password_mutation`, `no_success_after_burst`)이 맞으면 `block`(0.85 이상), weak 패턴만 맞으면 `alert`(0.5 이상), 그 밖은 `record`입니다. reason에 근거 패턴 이름을 한 줄로 적습니다. Jev는 저장소에 연결 정보가 없어 부르지 않고 애매한 건은 `alert`로 둡니다.
+- `xdr/brute-force/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/brute-force/deny-rules.json`에 넣고, block·alert를 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정은 막지 않고, 같은 묶음에서 정상·애매 이벤트에 나온 주소도 막지 않습니다. 두 결과 파일은 Git에서 제외합니다. 판정기 `src/decider.mjs`와 `RULE_IDS`(`starter.deny`)는 고치지 않았습니다.
+- 다시 실행하는 방법: `npm run xdr:run -- brute-force` → `xdr/brute-force/result.json`의 `counts`가 `{"block":10,"alert":9,"record":9}`, 정상 이벤트(bf-20~28)는 모두 `record`입니다. `node xdr/brute-force/respond.mjs` → 거부 규칙 9개, bf-01~10 주소만 거부되고 나머지는 통과합니다. `node xdr/brute-force/read-alerts.mjs` → `경보 28건 · 뽑은 줄 28줄 · 일치`.
+- 격리 확인: `decide.mjs`·`patterns.mjs`만 빈 폴더에 두고 환경변수를 비우고 그 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 28건 모두 같았습니다(가장 느린 경보 1ms). 실제로 인터넷을 끄고 돌린 것은 아닙니다.
+
+**남은 점:** 판정기 요청 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소가 없어 거부 규칙(`isDenied`)은 아직 실제 요청에 적용되지 않습니다. 확인은 시험 경보를 다시 흘린 규칙 대조입니다. 판정기도 아직 시작 틀(모든 요청 거부)입니다.
+
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
 [AGENTS.md](AGENTS.md)를 먼저 읽히고 한 번에 한 제작 단위만 요청하세요. 2단계부터는 자료 보호를 구현할 때 `public/data.json`을 복사하는 1단계 빌드 흐름도 함께 바꿔야 합니다. 3단계 이후의 로그인, 허용 경로, 5단계의 원본 API 주소, 6단계 이후 정책 규칙은 해당 단계 원고와 계약에 맞춰 추가합니다. 비밀번호·토큰·서버 전용 키·실제 학생 기록을 코드, Git, 제출 묶음에 넣지 않습니다.
