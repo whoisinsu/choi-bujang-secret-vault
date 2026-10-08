@@ -1,0 +1,179 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "brute-force",
+  "decisions": [
+    {
+      "alertId": "bf-01",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "명확한 공격 · 패턴: burst_failures"
+    },
+    {
+      "alertId": "bf-02",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "명확한 공격 · 패턴: password_spray"
+    },
+    {
+      "alertId": "bf-03",
+      "action": "block",
+      "confidence": 0.89,
+      "reason": "명확한 공격 · 패턴: burst_failures, password_spray"
+    },
+    {
+      "alertId": "bf-04",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 공격 · 패턴: burst_failures, no_success_after_burst"
+    },
+    {
+      "alertId": "bf-05",
+      "action": "block",
+      "confidence": 0.86,
+      "reason": "명확한 공격 · 패턴: password_spray"
+    },
+    {
+      "alertId": "bf-06",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "명확한 공격 · 패턴: burst_failures"
+    },
+    {
+      "alertId": "bf-07",
+      "action": "block",
+      "confidence": 0.89,
+      "reason": "명확한 공격 · 패턴: burst_failures, password_mutation"
+    },
+    {
+      "alertId": "bf-08",
+      "action": "block",
+      "confidence": 0.87,
+      "reason": "명확한 공격 · 패턴: burst_failures"
+    },
+    {
+      "alertId": "bf-09",
+      "action": "block",
+      "confidence": 0.86,
+      "reason": "명확한 공격 · 패턴: password_spray"
+    },
+    {
+      "alertId": "bf-10",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 공격 · 패턴: burst_failures, no_success_after_burst"
+    },
+    {
+      "alertId": "bf-11",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴: repeated_failures, failures_then_success (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-12",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "애매한 시도 · 패턴: repeated_failures, failures_then_success (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-13",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "애매한 시도 · 패턴: repeated_failures, unusual_source (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-14",
+      "action": "alert",
+      "confidence": 0.51,
+      "reason": "애매한 시도 · 패턴: repeated_failures (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-15",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "애매한 시도 · 패턴: repeated_failures, few_accounts_same_source (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-16",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "애매한 시도 · 패턴: repeated_failures (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-17",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴: repeated_failures, failures_then_success (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-18",
+      "action": "alert",
+      "confidence": 0.58,
+      "reason": "애매한 시도 · 패턴: repeated_failures, irregular_failures (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-19",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴: repeated_failures, retry_after_lockout (Jev 미연결, 묻지 않음)"
+    },
+    {
+      "alertId": "bf-20",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-21",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-22",
+      "action": "record",
+      "confidence": 0.7,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음 (실패 1건 이하)"
+    },
+    {
+      "alertId": "bf-23",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-24",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-25",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-26",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-27",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    },
+    {
+      "alertId": "bf-28",
+      "action": "record",
+      "confidence": 0.9,
+      "reason": "정상 이벤트 · 맞는 실패 패턴 없음"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 9,
+    "record": 9
+  }
+}
