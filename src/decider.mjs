@@ -82,13 +82,14 @@ function unusualAccessBurst({ source, hour, network, events }) {
 // - zone_class_notices: 강사 공지 수정은 거부합니다. 계약에 역할(role)이 없어 강사를 가릴 수 없으므로
 //   학생 자료실 판정기에서는 누구의 공지 수정도 허용하지 않습니다.
 // 추가(POST)·삭제(DELETE)는 아직 구역 규칙이 없어 이전처럼 starter.deny로 거부됩니다.
+// 각 경로는 엔진이 확인한 service와 묶습니다. 내 메모 경로라도 service가 'notes'가 아니면 다른 구역으로 보고 거부합니다.
 const ROUTES = Object.freeze({
-  'GET /notes': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
-  'GET /notes/:id': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
-  'PUT /notes/:id': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
-  'POST /notes': { ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
-  'DELETE /notes/:id': { ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
-  'PUT /notices/:id': { ruleId: 'zone_class_notices', decision: 'deny', reasonCode: 'notice_write_forbidden' },
+  'GET /notes': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'GET /notes/:id': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'PUT /notes/:id': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'POST /notes': { service: 'notes', ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
+  'DELETE /notes/:id': { service: 'notes', ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
+  'PUT /notices/:id': { service: 'notices', ruleId: 'zone_class_notices', decision: 'deny', reasonCode: 'notice_write_forbidden' },
 });
 const RECORD_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 const FEATURE_NAMES = new Set(['export', 'import', 'download', 'backup', 'bulk', 'all', 'admin', 'search',
@@ -109,7 +110,7 @@ function exactRoute(request) {
   const matches = want.every((part, index) => (part === ':id'
     ? RECORD_ID.test(got[index]) && !FEATURE_NAMES.has(got[index])
     : part === got[index]));
-  return matches ? ROUTES[route] : null;
+  return matches && request.service === ROUTES[route].service ? ROUTES[route] : null;
 }
 
 export async function decide(request) {

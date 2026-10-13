@@ -137,7 +137,7 @@ git grep -cE "$Q" 4f07b71
 
 - 자원 ID(`src/resources.mjs`): 내 메모는 구역 `my_notes`(자원 ID `notes`, `notes/<id>`), 강사 공지는 구역 `class_notices`(`notices`, `notices/<id>`)입니다. 서버가 요청 메서드·경로로만 만들고, Vercel 주소(`/api/notes/…`)와 판정 계약의 경로(`/notes/…`)를 같은 자원으로 봅니다. 강사 공지는 자료·API가 없어 이름만 정했습니다. 화면 메뉴는 바꾸지 않았습니다.
 - 판정기 구역 규칙(`src/decider.mjs`): 엔진이 준 `subjectId`·`deviceId`·`method`·`route`·`path`·`queryLength`만 씁니다. 순서는 `device_registered` → `route_exact` → 거부로 정한 경로 → `step_up_required` → `zone_my_notes` 허용입니다.
-  - `route_exact`: 경로 표에 없는 route, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`route_not_allowed`입니다.
+  - `route_exact`: 경로 표에 없는 route, 경로에 묶은 service(내 메모 `notes`, 공지 `notices`)와 다른 요청, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`route_not_allowed`입니다.
   - `zone_my_notes`: `GET /notes`, `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다.
   - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`notice_write_forbidden`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
   - 메모 추가·삭제는 아직 `starter.deny`입니다. `RULE_IDS`는 `starter.deny`, `device_registered`, `step_up_required`, `route_exact`, `zone_my_notes`, `zone_class_notices`입니다.
