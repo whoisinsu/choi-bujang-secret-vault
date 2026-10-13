@@ -133,6 +133,27 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 출처를 확인할 수 없는 신호는 "모름"으로 두므로 이 규칙에 걸리지 않습니다. 등록 기기의 쓰기 요청은 복합 사건이면 `step_up`, 재로그인 뒤에도 `starter.deny`로 거부됩니다. 허용 이유 코드 `approved`는 운영 등록부와 대조하지 못했습니다.
 
+## 8단계: 자료마다 갈 수 있는 구역을 나눕니다
+
+- 자원 ID(`src/resources.mjs`): 내 메모는 구역 `my_notes`(자원 ID `notes`, `notes/<id>`), 강사 공지는 구역 `class_notices`(`notices`, `notices/<id>`)입니다. 서버가 요청 메서드·경로로만 만들고, Vercel 주소(`/api/notes/…`)와 판정 계약의 경로(`/notes/…`)를 같은 자원으로 봅니다. 강사 공지는 자료·API가 없어 이름만 정했습니다. 화면 메뉴는 바꾸지 않았습니다.
+- 판정기 구역 규칙(`src/decider.mjs`): 엔진이 준 `subjectId`·`deviceId`·`method`·`route`·`path`·`queryLength`만 씁니다. 순서는 `device_registered` → `route_exact` → 거부로 정한 경로 → `step_up_required` → `zone_my_notes` 허용입니다.
+  - `route_exact`: 경로 표에 없는 route, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`route_not_allowed`입니다.
+  - `zone_my_notes`: `GET /notes`, `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다.
+  - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`notice_write_forbidden`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
+  - 메모 추가·삭제는 아직 `starter.deny`입니다. `RULE_IDS`는 `starter.deny`, `device_registered`, `step_up_required`, `route_exact`, `zone_my_notes`, `zone_class_notices`입니다.
+- 자료 API 확인(`src/notes-api.mjs`, 로그인 검사 뒤): 메모 API는 `my_notes` 구역의 다섯 경로만 받고 다른 구역은 403 `ZONE_FORBIDDEN`, 쿼리가 붙거나 주소의 `:id`와 받은 id가 다르면 404 `ROUTE_NOT_ALLOWED`, 본문에 `role`·`isInstructor`·`zone`·`scope` 등이 있으면 403 `ROLE_FIELD_REJECTED`입니다. 강사 권한은 검증된 로그인(student·judge)과 DB 어디에도 없어 공지 수정은 누구도 할 수 없습니다. 소유자는 4단계처럼 `owner_id`로 대조해 다른 사람 메모는 404 `NOTE_NOT_FOUND`입니다. 거부 사유는 코드와 경로 모양만 로그에 남깁니다.
+
+### 확인 순서
+
+1. `npm run decider:test` → 네 줄 모두 `통과`(이전 규칙 유지). 로컬 연습이며 심판 판정이 아닙니다.
+2. 배포 뒤 A로 로그인한 화면에서 메모 목록·수정이 그대로 되는지 봅니다.
+3. B로 로그인한 브라우저 Console에서 A 메모 id로 `GET`·`PUT`(본문에 `role: 'instructor'`)·`DELETE /api/notes/:id`를 보내면 404·403·404이고 A 메모는 그대로여야 합니다.
+
+- 확인 기록: 가짜 로그인·가짜 DB를 붙여 메모 API 처리 함수를 직접 부른 로컬 실측에서 A 자기 메모 읽기·수정 200, B 목록 빈 배열, B의 A 메모 읽기·수정·삭제 404, 본문 role 403, 메모 API로 공지 수정 우회 403, 쿼리로 id·owner_id 지정 404였습니다. 배포 주소에서 로그인 토큰으로 한 실측은 아닙니다.
+- 8단계 저장점: `aleph.config.json`은 `step: 8`, `allowedRoutes` 다섯 개는 그대로입니다. 자기 점검은 7단계 점검에 판정기 구역 규칙의 가상 요청 결과를 "심판 판정 아님"으로 더했습니다.
+
+**남은 점:** 이유 코드 `route_not_allowed`·`notice_write_forbidden`과 공지 경로 이름 `/notices`는 운영 등록부·엔진 경로와 대조하지 못했습니다. 공지 읽기 경로는 표에 없어 거부됩니다. B의 A 메모 접근은 자동 점검에서 미실행입니다.
+
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 
 - 경보: `xdr/fixtures/brute-force.json`(수업용 Wazuh 모양 28건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.

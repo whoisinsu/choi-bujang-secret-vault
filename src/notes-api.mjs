@@ -5,6 +5,7 @@
 // SUPABASE_SECRET_KEY는 서버 전용입니다. 응답·로그·브라우저 파일에 값을 넣지 않습니다.
 import { readFileSync } from 'node:fs';
 import { createLoginVerifier } from './verify-login.mjs';
+import { resourceFor, ZONES } from './resources.mjs';
 
 const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
@@ -115,6 +116,55 @@ export async function notesRequest(key, base, { method = 'GET', query, payload, 
 export const publicNote = ({ id, title, body }) => ({ id, title, body });
 
 // 공통 응답 처리: 캐시 금지, 허용 메서드 검사, 서버 설정과 로그인 확인, 오류를 JSON으로 바꿉니다.
+// 8단계 API 구역 확인: 판정기와 따로, 이 API가 다시 대조합니다.
+// - 메모 API는 my_notes 구역의 다섯 경로만 받습니다. 다른 구역(강사 공지 등)은 403 ZONE_FORBIDDEN입니다.
+//   강사 권한은 검증된 로그인(student·judge)이나 DB 어디에도 저장돼 있지 않으므로 공지 수정은 누구도 할 수 없습니다.
+// - 경로의 :id와 서버가 받은 id가 다르거나 쿼리가 붙으면 404 ROUTE_NOT_ALLOWED입니다(쿼리로 기능을 고르지 않음).
+// - 본문의 role·역할·구역 값은 믿지 않고 403 ROLE_FIELD_REJECTED로 거부합니다(화면 메뉴와 무관).
+// - 소유자는 기존처럼 DB의 owner_id와 검증된 사용자 ID로 대조합니다(다른 사람 메모는 404 NOTE_NOT_FOUND).
+// 거부 사유는 코드와 경로 모양만 로그에 남기고 토큰·사용자 ID·메모 내용은 남기지 않습니다.
+const NOTE_ROUTES = new Set(['GET /notes', 'POST /notes', 'GET /notes/:id', 'PUT /notes/:id', 'DELETE /notes/:id']);
+const ROLE_FIELDS = ['role', 'roles', 'aleph_role', 'isAdmin', 'is_admin', 'isInstructor', 'is_instructor',
+  'instructor', 'admin', 'zone', 'scope', 'permissions'];
+
+function requestBody(request) {
+  let input = request.body;
+  if (typeof input === 'string') {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      return null;
+    }
+  }
+  return input && typeof input === 'object' && !Array.isArray(input) ? input : null;
+}
+
+function checkZone(request, resource) {
+  if (!resource) throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
+  if (resource.zone !== ZONES.MY_NOTES) throw new HttpError(403, 'ZONE_FORBIDDEN');
+  if (!NOTE_ROUTES.has(resource.route)) throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
+  const { id, ...extraQuery } = request.query ?? {};
+  const hasId = resource.route.endsWith('/:id');
+  if (Object.keys(extraQuery).length || new URL(request.url ?? '', 'http://localhost').search) {
+    throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
+  }
+  if (hasId ? typeof id !== 'string' || resource.resourceId !== `notes/${id.toLowerCase()}` : id !== undefined) {
+    throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
+  }
+  const body = requestBody(request);
+  if (body && ROLE_FIELDS.some(field => Object.hasOwn(body, field))) {
+    throw new HttpError(403, 'ROLE_FIELD_REJECTED');
+  }
+}
+
+function requestPath(request) {
+  try {
+    return new URL(request.url ?? '', 'http://localhost').pathname;
+  } catch {
+    return '';
+  }
+}
+
 export function notesHandler(handlers) {
   return async function handler(request, response) {
     response.setHeader('Cache-Control', 'no-store');
@@ -122,12 +172,19 @@ export function notesHandler(handlers) {
       response.setHeader('Allow', Object.keys(handlers).join(', '));
       return response.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
     }
+    let resource = null;
     try {
       const { base, key } = serverSettings();
       const userId = await requireUser(request, key);
-      return await handlers[request.method]({ request, response, userId, base, key });
+      // 8단계: 요청 동작·경로로 구역과 자원 ID를 붙입니다(src/resources.mjs).
+      resource = resourceFor(request.method, requestPath(request));
+      checkZone(request, resource);
+      return await handlers[request.method]({ request, response, userId, base, key, resource });
     } catch (error) {
       if (error instanceof HttpError) {
+        if (error.status === 403 || error.status === 404) {
+          console.warn(`notes: 거부 ${error.code} ${resource?.route ?? `${request.method} 알 수 없는 경로`}`);
+        }
         if (error.status === 401) response.setHeader('WWW-Authenticate', 'Bearer');
         return response.status(error.status).json({ error: error.code });
       }

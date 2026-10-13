@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -19,6 +19,7 @@ export async function runAttackChecks(config) {
   if (config.step === 5) return runStep4Checks(app, config);
   if (config.step === 6) return runStep6Checks(app, config);
   if (config.step === 7) return runStep7Checks(app, config);
+  if (config.step === 8) return runStep8Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -223,5 +224,31 @@ async function runStep7Checks(app, config) {
       observed: await practice({ ...suspicious, requestId: crypto.randomUUID(), stepUp: { verified: true, authAgeSeconds: 60 } }) },
     { attackId: 'live_step_up_block', expected: '실제 자료 요청이 재로그인 전 막히고 새 로그인 뒤 허용됨',
       observed: '미실행: 제공 엔진의 새 로그인 시각 검증 연결이 이 환경에 없음. 자료 API는 판정기를 부르지 않음' },
+  ];
+}
+
+// 8단계: 7단계 점검에 더해 판정기의 구역 규칙에 가상 요청을 넣어 본 결과를 기록합니다(심판 판정 아님).
+// B의 A 메모 접근은 로그인 토큰이 필요해 위 cross_user_note_access처럼 자동 점검에서는 미실행입니다.
+async function runStep8Checks(app, config) {
+  const { decide } = await import('./decider.mjs');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+  const { normal } = fixtureRequests();
+  const practice = async (method, path, route, extra = {}) => {
+    try {
+      const { decision, reasonCode } = await decide({ ...normal, requestId: crypto.randomUUID(), method, path, route, ...extra });
+      return `${decision}·${reasonCode}`;
+    } catch (error) {
+      return `오류(${error.name})`;
+    }
+  };
+  const id = 'ca9ea280-7182-4291-96ab-9aeedb38c32b';
+  return [
+    ...await runStep7Checks(app, config),
+    { attackId: 'zone_own_note_read_update', expected: '내 메모 한 건 읽기·수정 경로는 allow(소유자는 자료 API가 다시 대조)',
+      observed: `로컬 판정기 가상 요청 GET ${await practice('GET', `/notes/${id}`, 'GET /notes/:id')}, PUT ${await practice('PUT', `/notes/${id}`, 'PUT /notes/:id')} (심판 판정 아님)` },
+    { attackId: 'zone_notice_write', expected: '학생 자료실에서 강사 공지 수정은 deny',
+      observed: `로컬 판정기 가상 요청 ${await practice('PUT', '/notices/n1', 'PUT /notices/:id')} (심판 판정 아님)` },
+    { attackId: 'zone_unknown_route', expected: ':id 자리 export·쿼리로 기능 선택·표에 없는 경로는 deny',
+      observed: `로컬 판정기 가상 요청 export ${await practice('GET', '/notes/export', 'GET /notes/:id')}, 쿼리 ${await practice('GET', '/notes', 'GET /notes', { queryLength: 9 })}, 표 밖 ${await practice('GET', '/ai', 'GET /ai')} (심판 판정 아님)` },
   ];
 }

@@ -1,7 +1,9 @@
 // ALEPH SDP 엔진이 확인한 요청만 받는 학생 판정기 시작점입니다.
 // 6단계부터 규칙을 하나씩 추가합니다. 규칙에 맞지 않는 요청은 시작 틀처럼 거부합니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
-export const RULE_IDS = Object.freeze(['starter.deny', 'device_registered', 'step_up_required']);
+export const RULE_IDS = Object.freeze([
+  'starter.deny', 'device_registered', 'step_up_required', 'route_exact', 'zone_my_notes', 'zone_class_notices',
+]);
 
 const respond = (request, decision, reasonCode, ruleId) => ({
   schema: 'aleph.decision.v1',
@@ -71,11 +73,57 @@ function unusualAccessBurst({ source, hour, network, events }) {
   return UNUSUAL_HOURS.includes(hour) && network !== 'usual' && recent >= BURST_MIN_COUNT;
 }
 
+// 8단계 구역 규칙: 엔진이 확인한 사용자(subjectId)·기기(deviceId)·메서드·정확한 경로(route·path)만 씁니다.
+// - route_exact: route가 아래 표에 있고, method가 route의 메서드와 같고, path가 route 모양과 정확히 맞아야 합니다.
+//   쿼리로 기능을 고르지 않으므로 쿼리가 있으면(queryLength > 0) 거부합니다. :id 자리에는 자료 ID만 오며
+//   export·admin 같은 기능 이름은 자료 ID로 받지 않습니다. 표에 없는 경로는 모두 거부합니다.
+// - zone_my_notes: 내 메모 목록·한 건 읽기와 수정만 허용합니다. 메모의 소유자는 요청에 없으므로
+//   "내 메모인지"는 최종 자료 API가 owner_id로 다시 확인합니다(다른 사람 메모는 404).
+// - zone_class_notices: 강사 공지 수정은 거부합니다. 계약에 역할(role)이 없어 강사를 가릴 수 없으므로
+//   학생 자료실 판정기에서는 누구의 공지 수정도 허용하지 않습니다.
+// 추가(POST)·삭제(DELETE)는 아직 구역 규칙이 없어 이전처럼 starter.deny로 거부됩니다.
+const ROUTES = Object.freeze({
+  'GET /notes': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'GET /notes/:id': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'PUT /notes/:id': { ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'POST /notes': { ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
+  'DELETE /notes/:id': { ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
+  'PUT /notices/:id': { ruleId: 'zone_class_notices', decision: 'deny', reasonCode: 'notice_write_forbidden' },
+});
+const RECORD_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
+const FEATURE_NAMES = new Set(['export', 'import', 'download', 'backup', 'bulk', 'all', 'admin', 'search',
+  'list', 'batch', 'dump', 'raw', 'debug', 'internal', 'new', 'edit']);
+const DEVICE_ID = /^[0-9a-f]{16}$/u;
+
+function exactRoute(request) {
+  const { route, method, path, subjectId, deviceId, queryLength } = request;
+  if (typeof subjectId !== 'string' || !subjectId || typeof deviceId !== 'string' || !DEVICE_ID.test(deviceId)) {
+    return null;
+  }
+  if (typeof route !== 'string' || !Object.hasOwn(ROUTES, route) || queryLength !== 0) return null;
+  const [routeMethod, routePath] = route.split(' ');
+  if (method !== routeMethod || typeof path !== 'string') return null;
+  const want = routePath.split('/');
+  const got = path.split('/');
+  if (got.length !== want.length) return null;
+  const matches = want.every((part, index) => (part === ':id'
+    ? RECORD_ID.test(got[index]) && !FEATURE_NAMES.has(got[index])
+    : part === got[index]));
+  return matches ? ROUTES[route] : null;
+}
+
 export async function decide(request) {
   // 6단계 device_registered: 엔진이 전달한 deviceRegistered가 정확히 true일 때만 통과합니다.
   // false, 값 없음, 문자열 'true' 같은 다른 값은 모두 미등록으로 거부합니다.
   if (request.deviceRegistered !== true) {
     return respond(request, 'deny', 'device_not_registered', 'device_registered');
+  }
+  // 8단계 route_exact: 표에 없는 경로·메서드가 다른 경로·모양이 틀린 경로·쿼리가 있는 요청은 거부합니다.
+  const zoneRule = exactRoute(request);
+  if (!zoneRule) return respond(request, 'deny', 'route_not_allowed', 'route_exact');
+  // 거부로 정한 경로(공지 수정, 아직 규칙 없는 추가·삭제)는 다시 로그인해도 바뀌지 않으므로 바로 거부합니다.
+  if (zoneRule.decision === 'deny') {
+    return respond(request, 'deny', zoneRule.reasonCode, zoneRule.ruleId);
   }
   // 7단계 step_up_required: 평소와 다른 시각 + 처음 보는 네트워크 + 갑자기 많은 사건이 함께 있을 때만
   // 차단 대신 추가 확인(다시 로그인)을 요구합니다. 지역은 조건에 넣지 않아 지역 하나로는 막지 않습니다.
@@ -84,9 +132,6 @@ export async function decide(request) {
   if (unusualAccessBurst(context) && !context.stepUpVerified) {
     return respond(request, 'step_up', 'step_up_required', 'step_up_required');
   }
-  // 등록 기기의 내 자료실 읽기(GET)만 허용합니다.
-  if (request.method === 'GET') {
-    return respond(request, 'allow', 'approved', 'device_registered');
-  }
-  return respond(request, 'deny', 'starter_not_ready', 'starter.deny');
+  // 8단계 zone_my_notes: 내 메모 목록·한 건 읽기와 수정만 여기까지 옵니다.
+  return respond(request, 'allow', zoneRule.reasonCode, zoneRule.ruleId);
 }
