@@ -96,6 +96,17 @@ const FEATURE_NAMES = new Set(['export', 'import', 'download', 'backup', 'bulk',
   'list', 'batch', 'dump', 'raw', 'debug', 'internal', 'new', 'edit']);
 const DEVICE_ID = /^[0-9a-f]{16}$/u;
 
+// zone_my_notes의 정확한 자원 경로 표: 엔진이 확인한 주체(subjectId)와 기기(deviceId)마다 들어갈 수 있는
+// 내 메모 경로를 정확히 적습니다. 경로 모양이 맞아도 이 표에 없는 주체·기기·경로 조합은 거부하므로,
+// 다른 사용자의 메모나 다른 기기로 들고 온 요청은 열리지 않습니다.
+// 지금은 엔진 연습 요청(scripts/fixture-7.mjs)의 주체·기기·메모만 있습니다. 실제 학생 주체의 항목은
+// 운영 엔진이 주체·메모 경로를 제공하면 그 값으로 더합니다(지어낸 값을 넣지 않습니다).
+const OWN_NOTE_PATHS = Object.freeze([
+  Object.freeze({ subjectId: 'learner_fixture', deviceId: 'aaaaaaaaaaaaaaaa', paths: Object.freeze(['/notes', '/notes/demo']) }),
+]);
+const ownsPath = ({ subjectId, deviceId, path }) => OWN_NOTE_PATHS.some(entry => entry.subjectId === subjectId
+  && entry.deviceId === deviceId && entry.paths.includes(path));
+
 function exactRoute(request) {
   const { route, method, path, subjectId, deviceId, queryLength } = request;
   if (typeof subjectId !== 'string' || !subjectId || typeof deviceId !== 'string' || !DEVICE_ID.test(deviceId)) {
@@ -126,6 +137,9 @@ export async function decide(request) {
   if (zoneRule.decision === 'deny') {
     return respond(request, 'deny', zoneRule.reasonCode, zoneRule.ruleId);
   }
+  // 8단계 zone_my_notes: 주체·기기·정확한 경로가 표에 있을 때만 통과합니다. 다른 사용자의 메모 경로는
+  // 다시 로그인해도 열리면 안 되므로 추가 확인보다 먼저 거부합니다.
+  if (!ownsPath(request)) return respond(request, 'deny', 'route_not_allowed', zoneRule.ruleId);
   // 7단계 step_up_required: 평소와 다른 시각 + 처음 보는 네트워크 + 갑자기 많은 사건이 함께 있을 때만
   // 차단 대신 추가 확인(다시 로그인)을 요구합니다. 지역은 조건에 넣지 않아 지역 하나로는 막지 않습니다.
   // 사유는 reasonCode step_up_required와 ruleIds로 남고, 재로그인이 확인되면 아래 기존 규칙으로 갑니다.
