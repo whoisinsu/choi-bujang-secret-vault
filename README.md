@@ -195,9 +195,9 @@ git grep -cE "$Q" 4f07b71
 |---|---|---|---|
 | 가-1 | `npm run policy:diff` | "사본 검증 통과", 변경 범위가 있으면 `npm run policy:restore`로 확인 → `-- --confirm <버전>`, 다시 `policy:diff`가 "변경 범위: 없음" | 미실행 |
 | 가-2 | `policy/restore-log.jsonl`을 연다 (정책을 되돌린 경우) | 이전 줄은 그대로, 이번 복원 한 줄이 끝에 추가 | 미실행 |
-| 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 미실행 |
-| 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 미실행 |
-| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 미실행 |
+| 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 변조 뒤: 실행(커밋 `4a0b23f` 배포, 학생 B 로그인) — `200 restored: content`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 2. 삭제 뒤 복원은 미실행 |
+| 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 실행(학생 A 로그인) — 감사 기록 4번 `backup_not_found`로 거부 확인. A 메모 그대로인지는 기록하지 않음 |
+| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 실행 — 1 `requested`, 2 `restored_content`, 3 `requested`, 4 `backup_not_found` |
 
 **나. 이전에 막던 요청이 다시 거부되는지 (금지 요청)**
 
@@ -222,6 +222,8 @@ git grep -cE "$Q" 4f07b71
 | 다-2 | B 로그인 화면: 목록 | 복원된 "B 시험 메모"만 보이고 A 메모는 안 보임 | 미실행 |
 
 - 판정기·탐지기 연습(나-8~10)은 로컬 가상 요청이며 심판 판정이 아닙니다. 실제 미등록 기기 접속·재로그인 차단·회수 집행은 이 저장소에 연결돼 있지 않아 이 순서에서도 미실행입니다.
+- 제출 직전 로그인 없이 실행한 것(커밋 `8a7a02b` 배포, 위 표 나-1·3·4·7에 해당하지만 B 메모 복원 전이라 "복구 뒤 결과"로 적지 않음): 정적 파일 `/data.json` 404·확인 표시와 메모 문장 0, 토큰 없음·위조 토큰 401, 토큰 없는 POST·PUT·DELETE·복원 401, anon 키로 notes·notes_backup·restore_audit 직접 요청 401, `decider:test` 4건·`detect:test` 6건 통과.
+- 심판 판정 기록: 첫 제출(`8a7a02b`)에서 `S10_AUDIT_DROPPED`(감사 기록 보존)가 나왔습니다. 사본이 없거나 거부된 복원 시도는 감사 기록 없이 끝났기 때문으로 보고(배포 뒤 첫 B 복원의 `auditSeq`가 2였음), 로그인·대상 id가 확인된 모든 시도에 자료를 바꾸기 전 `requested` 줄을 먼저 남기고(못 남기면 503) 결과 줄과 `auditSeq`를 돌려주도록 고쳤습니다(`4a0b23f`).
 - 복구 전에 확인한 것(참고, 위 표의 "복구 뒤 결과"가 아님): 임시 작업 사본에서 정책을 되돌린 뒤 로컬 가짜 로그인 시험으로 B의 A 메모 404·A 정상 200, `decider:test` 4건·`detect:test` 6건 통과. 배포 주소의 로그인 없는 `POST /api/restore` 401, `GET /api/restore` 405(커밋 `df8e234` 배포).
 
 - 확인 기록(로컬): 가짜 로그인·메모리 DB로 B 메모를 변조한 뒤 B가 복원하면 200 `content`, 지운 뒤 복원하면 200 `recreated`이고 둘 다 ID·소유자·내용 해시가 사본과 같았습니다. A가 B 메모 복원 404, 사본 변조 409, 같은 id가 A 소유일 때 409(A 소유 유지), A 메모는 그대로, 감사 기록에 본문 없음. 정책 되돌리기는 임시 작업 사본에서 자료 API 소유자 대조를 지운 뒤 복원해 B의 A 메모 읽기·수정·삭제가 200에서 404로 돌아오고 A 정상 요청은 200인 것을 확인했습니다. 배포 주소와 실제 DB에서의 확인은 SQL 실행·배포 뒤에 합니다.
