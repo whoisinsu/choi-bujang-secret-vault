@@ -13,6 +13,9 @@ function originalApiUrl(value) {
   }
 }
 
+const restoreRoute = (value) => typeof value === 'string'
+  && /^(GET|POST|PUT|PATCH|DELETE) \/api(\/[a-z0-9-]+)+$/u.test(value);
+
 export function deploymentIdentity(env, config) {
   const owner = env.VERCEL_GIT_REPO_OWNER;
   const repo = env.VERCEL_GIT_REPO_SLUG;
@@ -44,5 +47,8 @@ export function deploymentIdentity(env, config) {
     // 5단계부터 원본 자료 API 주소를 공개합니다. 쿼리·계정 정보 없는 HTTPS 경로만 옮깁니다.
     ...(config.step >= 5 && originalApiUrl(config.originalApiUrl)
       ? { originalApiUrl: config.originalApiUrl } : {}),
+    // 10단계부터 복구 경로(메서드와 같은 배포의 /api 경로)를 공개합니다. 형식이 맞을 때만 옮깁니다.
+    ...(config.step >= 10 && restoreRoute(config.restoreRoute)
+      ? { restoreRoute: config.restoreRoute } : {}),
   };
 }

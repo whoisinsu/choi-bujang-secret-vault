@@ -185,6 +185,8 @@ git grep -cE "$Q" 4f07b71
 - 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
 - 10단계 저장점: `aleph.config.json`은 `step: 10`, `restoreRoute`는 `POST /api/restore`입니다. 처음에는 같은 경로를 `allowedRoutes`에도 더했지만, 재제출에서도 `S10_AUDIT_DROPPED`가 남고 심판 제출 뒤 `restore_audit`에 새 줄이 없어(1~4번은 학생 확인) "지정한 한 건 밖의 규칙 변경"으로 보고 `allowedRoutes`는 9단계와 같은 다섯 개로 되돌렸습니다. 판정기 `RULE_IDS`는 9단계와 같습니다. 자기 점검은 한도 20개를 지키려 7단계 가상 사건 세 줄을 한 줄로 묶고, 토큰 없는 `POST /api/restore`(실제 전송)·정책 사본 검증(`policy:diff` 실행 결과)·B 메모 복원(미실행)을 더했습니다. 정책 사본은 9단계 기준이라 `policy:diff`는 이번 저장점에서 바꾼 `aleph.config.json`을 차이로 보여 줍니다.
 
+- 복구 경로 공개: 심판은 배포 주소의 `/aleph.json`을 읽는데, 빌드(`scripts/deployment-identity.mjs`)가 `restoreRoute`를 옮기지 않아 세 번의 제출 동안 심판 요청이 `/api/restore`에 한 번도 오지 않았습니다(Vercel 로그의 401은 모두 학생·자기 점검 요청과 시각이 맞음). 3단계 `allowedRoutes`·5단계 `originalApiUrl`처럼 10단계부터 `restoreRoute`(`METHOD /api/경로` 형식일 때만)를 `/aleph.json`에 공개하도록 고쳤습니다.
+
 ### 복구 뒤 1~9단계 다시 확인하는 순서
 
 복구한 직후 아래 순서대로 다시 실행합니다. 결과 칸은 실제로 실행한 결과만 적고, 실행하지 않은 것은 **미실행**으로 둡니다. 비밀번호·토큰은 기록하지 않습니다. `U=https://choi-bujang-secret-vault-blue-tau.vercel.app`
