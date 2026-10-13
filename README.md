@@ -141,7 +141,7 @@ git grep -cE "$Q" 4f07b71
   - `zone_my_notes`: `GET /notes`, `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다.
   - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`notice_write_forbidden`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
   - 메모 추가·삭제는 아직 `starter.deny`입니다. `RULE_IDS`는 `starter.deny`, `device_registered`, `step_up_required`, `route_exact`, `zone_my_notes`, `zone_class_notices`입니다.
-- 자료 API 확인(`src/notes-api.mjs`, 로그인 검사 뒤): 메모 API는 `my_notes` 구역의 다섯 경로만 받고 다른 구역은 403 `ZONE_FORBIDDEN`, 쿼리가 붙거나 주소의 `:id`와 받은 id가 다르면 404 `ROUTE_NOT_ALLOWED`, 본문에 `role`·`isInstructor`·`zone`·`scope` 등이 있으면 403 `ROLE_FIELD_REJECTED`입니다. 강사 권한은 검증된 로그인(student·judge)과 DB 어디에도 없어 공지 수정은 누구도 할 수 없습니다. 소유자는 4단계처럼 `owner_id`로 대조해 다른 사람 메모는 404 `NOTE_NOT_FOUND`입니다. 거부 사유는 코드와 경로 모양만 로그에 남깁니다.
+- 자료 API 확인(`src/notes-api.mjs`, 로그인 검사 뒤): 메모 API는 `my_notes` 구역의 다섯 경로만 받고 다른 구역은 403 `ZONE_FORBIDDEN`, 쿼리가 붙거나(Vercel이 덧붙이는 경로와 같은 `id` 하나만 예외) 주소의 `:id`와 받은 id가 다르면 404 `ROUTE_NOT_ALLOWED`, 본문에 `role`·`isInstructor`·`zone`·`scope` 등이 있으면 403 `ROLE_FIELD_REJECTED`입니다. 강사 권한은 검증된 로그인(student·judge)과 DB 어디에도 없어 공지 수정은 누구도 할 수 없습니다. 소유자는 4단계처럼 `owner_id`로 대조해 다른 사람 메모는 404 `NOTE_NOT_FOUND`입니다. 거부 사유는 코드와 경로 모양만 로그에 남깁니다.
 
 ### 확인 순서
 

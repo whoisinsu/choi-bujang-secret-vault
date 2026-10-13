@@ -143,14 +143,17 @@ function checkZone(request, resource) {
   if (!resource) throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
   if (resource.zone !== ZONES.MY_NOTES) throw new HttpError(403, 'ZONE_FORBIDDEN');
   if (!NOTE_ROUTES.has(resource.route)) throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
+  // Vercel은 /api/notes/:id의 :id를 request.query.id와 주소의 ?id=로 함께 넘깁니다.
+  // 한 건 경로에서는 경로의 id와 같은 id 쿼리만 받고, 그 밖의 쿼리와 목록 경로의 쿼리는 모두 거부합니다.
+  const pathId = resource.route.endsWith('/:id') ? resource.resourceId.slice('notes/'.length) : null;
+  const sameId = value => pathId !== null && typeof value === 'string' && value.toLowerCase() === pathId;
   const { id, ...extraQuery } = request.query ?? {};
-  const hasId = resource.route.endsWith('/:id');
-  if (Object.keys(extraQuery).length || new URL(request.url ?? '', 'http://localhost').search) {
+  const urlQuery = new URL(request.url ?? '', 'http://localhost').searchParams;
+  if (Object.keys(extraQuery).length || [...urlQuery.keys()].some(key => key !== 'id')
+      || !urlQuery.getAll('id').every(sameId)) {
     throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
   }
-  if (hasId ? typeof id !== 'string' || resource.resourceId !== `notes/${id.toLowerCase()}` : id !== undefined) {
-    throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
-  }
+  if (pathId !== null ? !sameId(id) : id !== undefined) throw new HttpError(404, 'ROUTE_NOT_ALLOWED');
   const body = requestBody(request);
   if (body && ROLE_FIELDS.some(field => Object.hasOwn(body, field))) {
     throw new HttpError(403, 'ROLE_FIELD_REJECTED');
