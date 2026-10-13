@@ -172,6 +172,19 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 계약 사건에는 기기 값이 없어 연습 사건의 회수 제안(`proposeRevocation`)은 `null`입니다. 회수된 신원·세션의 재요청이나 다른 자원 이동을 판정기에서 거부하려면 엔진이 회수 사건의 `recentEvents.kind` 이름을 계약으로 제공해야 해, 이번에는 넣지 않았습니다.
 
+## 10단계: 백업에서 자료실을 되살립니다
+
+- 정책 사본과 차이(`scripts/policy-diff.mjs`, `policy/baseline.json`): 침해 전에 심판을 통과한 9단계 저장점(`240d023`)의 정책 파일 12개(판정기·탐지기·로그인 검사·로그인 대행·자료 API·구역·`aleph.config.json`·`vercel.json`·DB 권한 SQL 두 개) SHA-256 지문을 사본으로 기록했습니다. `npm run policy:diff`는 사본 형식·전체 지문·기준 커밋·파일별 지문을 검증한 뒤 복원할 버전과 바뀐 파일·줄 수만 보여 주며, 사본이 없거나 검증에 실패하면 비교하지 않고 중단합니다.
+- 정책 되돌리기(`npm run policy:restore`): 먼저 바뀔 파일만 보여 주고 아무것도 바꾸지 않습니다. `npm run policy:restore -- --confirm <버전>`으로 화면의 버전을 그대로 적어야 사본과 다른 정책 파일만 기준 커밋 내용으로 되돌립니다. 다른 파일·Git 이력·DB·배포는 건드리지 않고, `policy/restore-log.jsonl`에 시각·버전·파일별 복원 전후 지문을 한 줄씩 덧붙입니다(기존 줄은 그대로).
+- 메모 한 건 복원 경로: 서비스 `notes`(자료실 Vercel 서버 함수), **`POST /api/restore`**(`api/restore.js` → `src/restore-api.mjs`), 본문 `{"id":"<메모 UUID>"}` 한 값만 받습니다.
+  - 로그인 필수(토큰 없으면 401). 쿼리가 붙으면 404, 본문에 `id` 말고 다른 값(`owner_id` 등)이 있으면 400입니다.
+  - 비공개 사본 `public.notes_backup`에서 `id`와 `owner_id = 검증된 사용자 ID`가 모두 맞는 한 건만 고릅니다. 남의 사본은 404 `BACKUP_NOT_FOUND`입니다.
+  - 사본의 ID·소유자·내용 해시(`sha256(sha256(title) ‖ sha256(body))`)를 대조해 틀리면 409 `BACKUP_VERIFY_FAILED`, 같은 id가 다른 사람 소유로 있으면 덮어쓰지 않고 409 `RESTORE_OWNER_CONFLICT`입니다.
+  - 변조된 메모는 내용만 되돌리고, 지워진 메모는 다시 만듭니다. 그 뒤 그 한 건을 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 응답은 `{id, restored: 'content'|'recreated', contentSha256}`이며 본문은 돌려주지 않습니다.
+  - 다른 메모는 건드리지 않습니다. 감사 기록 `public.restore_audit`에 결과·복원 전후 해시를 덧붙이며(본문·토큰 없음), DB 트리거로 수정·삭제·비우기를 막아 덧붙이기만 됩니다.
+- 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
+- 확인 기록(로컬): 가짜 로그인·메모리 DB로 B 메모를 변조한 뒤 B가 복원하면 200 `content`, 지운 뒤 복원하면 200 `recreated`이고 둘 다 ID·소유자·내용 해시가 사본과 같았습니다. A가 B 메모 복원 404, 사본 변조 409, 같은 id가 A 소유일 때 409(A 소유 유지), A 메모는 그대로, 감사 기록에 본문 없음. 정책 되돌리기는 임시 작업 사본에서 자료 API 소유자 대조를 지운 뒤 복원해 B의 A 메모 읽기·수정·삭제가 200에서 404로 돌아오고 A 정상 요청은 200인 것을 확인했습니다. 배포 주소와 실제 DB에서의 확인은 SQL 실행·배포 뒤에 합니다.
+
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 
 - 경보: `xdr/fixtures/brute-force.json`(수업용 Wazuh 모양 28건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.

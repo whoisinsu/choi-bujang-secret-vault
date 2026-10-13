@@ -1,0 +1,21 @@
+{
+  "schema": "aleph.policy.baseline.v1",
+  "version": "policy@240d023",
+  "commit": "240d0236cd6f3f64271cf6b3cea8b1d5b01f8e01",
+  "note": "침해 전 심판 통과 저장점의 정책 파일 지문(본문·비밀값 없음)",
+  "files": {
+    "src/decider.mjs": "6e866ab5a7374e504c37ddf0ee84e27026c3cf7cee638c93b633ebd180948b6d",
+    "src/detect.mjs": "8f35ddc9ea8632ac67ea3f964609e6172416aeb5df3058a70d05c21b5afbed81",
+    "src/verify-login.mjs": "c8fa6842c7904f9430e002bd92207d4aef9d54739a712f716153a2cb96e7389b",
+    "src/auth-proxy.mjs": "594fa5c586dca6dd1ae363104a776c9d79b6ba523a3ee90f3a4cde7dc768d9c6",
+    "src/notes-api.mjs": "889fa8d879907c1f1c931aceea1d1621025e72f63fd3b42a6f1a275e8d48cd2d",
+    "src/resources.mjs": "d7537016d480cd69fd072073a0206a7ef23415e8921c1902510be63968911339",
+    "api/notes/index.js": "75169e2d420c7d5a719ecc64f3309ac9e69f8370fc616919ba5012471df5b6a5",
+    "api/notes/[id].js": "7f8cab964e8fdecb8c6b9a3015d8599b69182026a3bf84321a44fae03918b85e",
+    "aleph.config.json": "d8783906d4da114ef0ce39b8b9b2c53468f768444dfc6afce03cf9c49c82b765",
+    "vercel.json": "83173ab8a0ac1bb98ac44dd64b1933c1ee5496a6b7c8205fffa769dcd99116a6",
+    "supabase/step4_rls.sql": "a31f86fc0d14ad120b09538e3d79d84928dc9faa1d59ade57fe58bba5dfac649",
+    "supabase/step5_revoke.sql": "5ff2c39ce831a6fa560e0d3386f75c9798721fe5ed7abd9757071c4ad2d54af9"
+  },
+  "digest": "cf4e241d9c91d8f7da4858c3ef68098e23768ff90ecfc28893906d16fba82c39"
+}
