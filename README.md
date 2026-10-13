@@ -183,6 +183,45 @@ git grep -cE "$Q" 4f07b71
   - 변조된 메모는 내용만 되돌리고, 지워진 메모는 다시 만듭니다. 그 뒤 그 한 건을 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 응답은 `{id, restored: 'content'|'recreated', contentSha256}`이며 본문은 돌려주지 않습니다.
   - 다른 메모는 건드리지 않습니다. 감사 기록 `public.restore_audit`에 결과·복원 전후 해시를 덧붙이며(본문·토큰 없음), DB 트리거로 수정·삭제·비우기를 막아 덧붙이기만 됩니다.
 - 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
+### 복구 뒤 1~9단계 다시 확인하는 순서
+
+복구한 직후 아래 순서대로 다시 실행합니다. 결과 칸은 실제로 실행한 결과만 적고, 실행하지 않은 것은 **미실행**으로 둡니다. 비밀번호·토큰은 기록하지 않습니다. `U=https://choi-bujang-secret-vault-blue-tau.vercel.app`
+
+**가. 복구가 됐는지 (자료와 정책)**
+
+| 순서 | 실행 | 기대 | 복구 뒤 결과 |
+|---|---|---|---|
+| 가-1 | `npm run policy:diff` | "사본 검증 통과", 변경 범위가 있으면 `npm run policy:restore`로 확인 → `-- --confirm <버전>`, 다시 `policy:diff`가 "변경 범위: 없음" | 미실행 |
+| 가-2 | `policy/restore-log.jsonl`을 연다 (정책을 되돌린 경우) | 이전 줄은 그대로, 이번 복원 한 줄이 끝에 추가 | 미실행 |
+| 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 미실행 |
+| 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 미실행 |
+| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 미실행 |
+
+**나. 이전에 막던 요청이 다시 거부되는지 (금지 요청)**
+
+| 순서 | 단계 | 실행 | 기대 | 복구 뒤 결과 |
+|---|---|---|---|---|
+| 나-1 | 1·2 | `for p in / /data.json /aleph.json; do echo "$p $(curl -s -o /dev/null -w '%{http_code}' "$U$p") $(curl -s "$U$p" \| grep -c SAMPLE_NOTE_1)"; done` | `/data.json` 404, 확인 표시 모두 0 | 미실행 |
+| 나-2 | 2 | 2단계 절의 "가상 메모 문장 검색 절차" 1)~3) | 정적 파일·GitHub 최신 파일·비로그인 API 모두 0건 | 미실행 |
+| 나-3 | 3 | `curl -s -o /dev/null -w '%{http_code}' $U/api/notes` 와 `-H 'Authorization: Bearer aaaa.bbbb.cccc'` | 둘 다 401 | 미실행 |
+| 나-4 | 3 | 토큰 없이 `POST /api/notes`, `PUT`·`DELETE /api/notes/<id>` | 모두 401 | 미실행 |
+| 나-5 | 4·8 | B 로그인 Console에서 A 메모 id로 `GET`·`PUT`·`DELETE /api/notes/:id` (8단계 확인 순서의 코드) | 404·404·404, A 메모 그대로 | 미실행 |
+| 나-6 | 8 | 같은 Console에서 본문에 `role: 'instructor'`를 넣은 `PUT`, `GET /api/notes?owner_id=x` | 403 `ROLE_FIELD_REJECTED`, 404 `ROUTE_NOT_ALLOWED` | 미실행 |
+| 나-7 | 5 | 공개 anon 키로 `originalApiUrl`에 SELECT·INSERT·UPDATE·DELETE | 모두 401(권한 없음) | 미실행 |
+| 나-8 | 6~8 | `npm run decider:test`, `npm run fixture:7` | 네 줄 `통과`(미등록 기기 deny, 복합 이상 step_up), 정상 allow·복합 step_up | 미실행 |
+| 나-9 | 9 | `npm run detect:test` | 여섯 줄 `통과`(121건·200건 회수 제안, 나머지 observe) | 미실행 |
+| 나-10 | 3~9 | `npm run bundle` (커밋 뒤, 나-3·4·7과 판정기·탐지기 가상 요청을 한 번에 실제로 보내 기록) | `artifacts/submission.json`의 각 `observed`가 위 기대와 같음 | 미실행 |
+
+**다. 정상 요청이 유지되는지**
+
+| 순서 | 실행 | 기대 | 복구 뒤 결과 |
+|---|---|---|---|
+| 다-1 | A 로그인 화면: 목록 → 추가 → 수정 → 삭제 | 네 건 보임, "메모를 추가/수정/삭제했습니다." | 미실행 |
+| 다-2 | B 로그인 화면: 목록 | 복원된 "B 시험 메모"만 보이고 A 메모는 안 보임 | 미실행 |
+
+- 판정기·탐지기 연습(나-8~10)은 로컬 가상 요청이며 심판 판정이 아닙니다. 실제 미등록 기기 접속·재로그인 차단·회수 집행은 이 저장소에 연결돼 있지 않아 이 순서에서도 미실행입니다.
+- 복구 전에 확인한 것(참고, 위 표의 "복구 뒤 결과"가 아님): 임시 작업 사본에서 정책을 되돌린 뒤 로컬 가짜 로그인 시험으로 B의 A 메모 404·A 정상 200, `decider:test` 4건·`detect:test` 6건 통과. 배포 주소의 로그인 없는 `POST /api/restore` 401, `GET /api/restore` 405(커밋 `df8e234` 배포).
+
 - 확인 기록(로컬): 가짜 로그인·메모리 DB로 B 메모를 변조한 뒤 B가 복원하면 200 `content`, 지운 뒤 복원하면 200 `recreated`이고 둘 다 ID·소유자·내용 해시가 사본과 같았습니다. A가 B 메모 복원 404, 사본 변조 409, 같은 id가 A 소유일 때 409(A 소유 유지), A 메모는 그대로, 감사 기록에 본문 없음. 정책 되돌리기는 임시 작업 사본에서 자료 API 소유자 대조를 지운 뒤 복원해 B의 A 메모 읽기·수정·삭제가 200에서 404로 돌아오고 A 정상 요청은 200인 것을 확인했습니다. 배포 주소와 실제 DB에서의 확인은 SQL 실행·배포 뒤에 합니다.
 
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
