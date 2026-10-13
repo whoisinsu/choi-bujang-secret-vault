@@ -137,9 +137,9 @@ git grep -cE "$Q" 4f07b71
 
 - 자원 ID(`src/resources.mjs`): 내 메모는 구역 `my_notes`(자원 ID `notes`, `notes/<id>`), 강사 공지는 구역 `class_notices`(`notices`, `notices/<id>`)입니다. 서버가 요청 메서드·경로로만 만들고, Vercel 주소(`/api/notes/…`)와 판정 계약의 경로(`/notes/…`)를 같은 자원으로 봅니다. 강사 공지는 자료·API가 없어 이름만 정했습니다. 화면 메뉴는 바꾸지 않았습니다.
 - 판정기 구역 규칙(`src/decider.mjs`): 엔진이 준 `subjectId`·`deviceId`·`method`·`route`·`path`·`queryLength`만 씁니다. 순서는 `device_registered` → `route_exact` → 거부로 정한 경로 → `step_up_required` → `zone_my_notes` 허용입니다.
-  - `route_exact`: 경로 표에 없는 route, 경로에 묶은 service(내 메모 `notes`, 공지 `notices`)와 다른 요청, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`route_not_allowed`입니다.
-  - `zone_my_notes`: `GET /notes`, `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다. 여기에 더해 주체(`subjectId`)·기기(`deviceId`)·정확한 경로(`path`) 조합이 판정기의 자원 경로 표(`OWN_NOTE_PATHS`)에 있어야 하며, 없으면 추가 확인보다 먼저 `deny`·`route_not_allowed`입니다(다른 사용자의 메모 경로 거부). 표에는 엔진 연습 요청의 주체 `learner_fixture`·기기 `aaaaaaaaaaaaaaaa`·경로 `/notes`, `/notes/demo`만 있어, 운영 엔진을 연결하면 엔진이 준 실제 주체·메모 경로를 더해야 합니다.
-  - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`notice_write_forbidden`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
+  - `route_exact`: 경로 표에 없는 route, 경로에 묶은 service(내 메모 `notes`, 공지 `notices`)와 다른 요청, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`starter_not_ready`입니다.
+  - `zone_my_notes`: `GET /notes`, `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다. 여기에 더해 주체(`subjectId`)·기기(`deviceId`)·정확한 경로(`path`) 조합이 판정기의 자원 경로 표(`OWN_NOTE_PATHS`)에 있어야 하며, 없으면 추가 확인보다 먼저 `deny`·`starter_not_ready`입니다(다른 사용자의 메모 경로 거부). 표에는 엔진 연습 요청의 주체 `learner_fixture`·기기 `aaaaaaaaaaaaaaaa`·경로 `/notes`, `/notes/demo`만 있어, 운영 엔진을 연결하면 엔진이 준 실제 주체·메모 경로를 더해야 합니다.
+  - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`starter_not_ready`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
   - 메모 추가·삭제는 아직 `starter.deny`입니다. `RULE_IDS`는 `starter.deny`, `device_registered`, `step_up_required`, `route_exact`, `zone_my_notes`, `zone_class_notices`입니다.
 - 자료 API 확인(`src/notes-api.mjs`, 로그인 검사 뒤): 메모 API는 `my_notes` 구역의 다섯 경로만 받고 다른 구역은 403 `ZONE_FORBIDDEN`, 쿼리가 붙거나(Vercel이 덧붙이는 경로와 같은 `id` 하나만 예외) 주소의 `:id`와 받은 id가 다르면 404 `ROUTE_NOT_ALLOWED`, 본문에 `role`·`isInstructor`·`zone`·`scope` 등이 있으면 403 `ROLE_FIELD_REJECTED`입니다. 강사 권한은 검증된 로그인(student·judge)과 DB 어디에도 없어 공지 수정은 누구도 할 수 없습니다. 소유자는 4단계처럼 `owner_id`로 대조해 다른 사람 메모는 404 `NOTE_NOT_FOUND`입니다. 거부 사유는 코드와 경로 모양만 로그에 남깁니다.
 
@@ -152,7 +152,7 @@ git grep -cE "$Q" 4f07b71
 - 확인 기록: 가짜 로그인·가짜 DB를 붙여 메모 API 처리 함수를 직접 부른 로컬 실측에서 A 자기 메모 읽기·수정 200, B 목록 빈 배열, B의 A 메모 읽기·수정·삭제 404, 본문 role 403, 메모 API로 공지 수정 우회 403, 쿼리로 id·owner_id 지정 404였습니다. 배포 주소에서 로그인 토큰으로 한 실측은 아닙니다.
 - 8단계 저장점: `aleph.config.json`은 `step: 8`, `allowedRoutes` 다섯 개는 그대로입니다. 자기 점검은 7단계 점검에 판정기 구역 규칙의 가상 요청 결과를 "심판 판정 아님"으로 더했습니다.
 
-**남은 점:** 이유 코드 `route_not_allowed`·`notice_write_forbidden`과 공지 경로 이름 `/notices`는 운영 등록부·엔진 경로와 대조하지 못했습니다. 공지 읽기 경로는 표에 없어 거부됩니다. B의 A 메모 접근은 자동 점검에서 미실행입니다.
+**남은 점:** 심판 판정 S08_OTHER_ZONE_ALLOWED 대응으로 8단계 거부 이유 코드를 처음에 쓴 `route_not_allowed`·`notice_write_forbidden`에서 시작 틀이 쓰던 `starter_not_ready`로 바꿨습니다(운영 등록부의 허용 코드 목록을 확인하지 못해 이미 쓰인 코드를 택함, 규칙 이름으로 사유를 구분). 공지 경로 이름 `/notices`는 운영 등록부·엔진 경로와 대조하지 못했습니다. 공지 읽기 경로는 표에 없어 거부됩니다. B의 A 메모 접근은 자동 점검에서 미실행입니다.
 
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 

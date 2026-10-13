@@ -89,7 +89,7 @@ const ROUTES = Object.freeze({
   'PUT /notes/:id': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
   'POST /notes': { service: 'notes', ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
   'DELETE /notes/:id': { service: 'notes', ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
-  'PUT /notices/:id': { service: 'notices', ruleId: 'zone_class_notices', decision: 'deny', reasonCode: 'notice_write_forbidden' },
+  'PUT /notices/:id': { service: 'notices', ruleId: 'zone_class_notices', decision: 'deny', reasonCode: 'starter_not_ready' },
 });
 const RECORD_ID = /^[a-z0-9][a-z0-9-]{0,63}$/u;
 const FEATURE_NAMES = new Set(['export', 'import', 'download', 'backup', 'bulk', 'all', 'admin', 'search',
@@ -132,14 +132,14 @@ export async function decide(request) {
   }
   // 8단계 route_exact: 표에 없는 경로·메서드가 다른 경로·모양이 틀린 경로·쿼리가 있는 요청은 거부합니다.
   const zoneRule = exactRoute(request);
-  if (!zoneRule) return respond(request, 'deny', 'route_not_allowed', 'route_exact');
+  if (!zoneRule) return respond(request, 'deny', 'starter_not_ready', 'route_exact');
   // 거부로 정한 경로(공지 수정, 아직 규칙 없는 추가·삭제)는 다시 로그인해도 바뀌지 않으므로 바로 거부합니다.
   if (zoneRule.decision === 'deny') {
     return respond(request, 'deny', zoneRule.reasonCode, zoneRule.ruleId);
   }
   // 8단계 zone_my_notes: 주체·기기·정확한 경로가 표에 있을 때만 통과합니다. 다른 사용자의 메모 경로는
   // 다시 로그인해도 열리면 안 되므로 추가 확인보다 먼저 거부합니다.
-  if (!ownsPath(request)) return respond(request, 'deny', 'route_not_allowed', zoneRule.ruleId);
+  if (!ownsPath(request)) return respond(request, 'deny', 'starter_not_ready', zoneRule.ruleId);
   // 7단계 step_up_required: 평소와 다른 시각 + 처음 보는 네트워크 + 갑자기 많은 사건이 함께 있을 때만
   // 차단 대신 추가 확인(다시 로그인)을 요구합니다. 지역은 조건에 넣지 않아 지역 하나로는 막지 않습니다.
   // 사유는 reasonCode step_up_required와 ruleIds로 남고, 재로그인이 확인되면 아래 기존 규칙으로 갑니다.
