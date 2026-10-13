@@ -77,14 +77,15 @@ function unusualAccessBurst({ source, hour, network, events }) {
 // - route_exact: route가 아래 표에 있고, method가 route의 메서드와 같고, path가 route 모양과 정확히 맞아야 합니다.
 //   쿼리로 기능을 고르지 않으므로 쿼리가 있으면(queryLength > 0) 거부합니다. :id 자리에는 자료 ID만 오며
 //   export·admin 같은 기능 이름은 자료 ID로 받지 않습니다. 표에 없는 경로는 모두 거부합니다.
-// - zone_my_notes: 내 메모 목록·한 건 읽기와 수정만 허용합니다. 메모의 소유자는 요청에 없으므로
+// - zone_my_notes: 자료 ID로 고른 내 메모 한 건 읽기와 수정만 허용합니다. 자료를 고르지 않는 목록(GET /notes)은
+//   어느 구역의 메모가 섞일지 판정기가 알 수 없으므로 거부합니다. 메모의 소유자는 요청에 없으므로
 //   "내 메모인지"는 최종 자료 API가 owner_id로 다시 확인합니다(다른 사람 메모는 404).
 // - zone_class_notices: 강사 공지 수정은 거부합니다. 계약에 역할(role)이 없어 강사를 가릴 수 없으므로
 //   학생 자료실 판정기에서는 누구의 공지 수정도 허용하지 않습니다.
 // 추가(POST)·삭제(DELETE)는 아직 구역 규칙이 없어 이전처럼 starter.deny로 거부됩니다.
 // 각 경로는 엔진이 확인한 service와 묶습니다. 내 메모 경로라도 service가 'notes'가 아니면 다른 구역으로 보고 거부합니다.
 const ROUTES = Object.freeze({
-  'GET /notes': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
+  'GET /notes': { service: 'notes', ruleId: 'zone_my_notes', decision: 'deny', reasonCode: 'starter_not_ready' },
   'GET /notes/:id': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
   'PUT /notes/:id': { service: 'notes', ruleId: 'zone_my_notes', decision: 'allow', reasonCode: 'approved' },
   'POST /notes': { service: 'notes', ruleId: 'starter.deny', decision: 'deny', reasonCode: 'starter_not_ready' },
@@ -102,7 +103,7 @@ const DEVICE_ID = /^[0-9a-f]{16}$/u;
 // 지금은 엔진 연습 요청(scripts/fixture-7.mjs)의 주체·기기·메모만 있습니다. 실제 학생 주체의 항목은
 // 운영 엔진이 주체·메모 경로를 제공하면 그 값으로 더합니다(지어낸 값을 넣지 않습니다).
 const OWN_NOTE_PATHS = Object.freeze([
-  Object.freeze({ subjectId: 'learner_fixture', deviceId: 'aaaaaaaaaaaaaaaa', paths: Object.freeze(['/notes', '/notes/demo']) }),
+  Object.freeze({ subjectId: 'learner_fixture', deviceId: 'aaaaaaaaaaaaaaaa', paths: Object.freeze(['/notes/demo']) }),
 ]);
 const ownsPath = ({ subjectId, deviceId, path }) => OWN_NOTE_PATHS.some(entry => entry.subjectId === subjectId
   && entry.deviceId === deviceId && entry.paths.includes(path));
@@ -147,6 +148,6 @@ export async function decide(request) {
   if (unusualAccessBurst(context) && !context.stepUpVerified) {
     return respond(request, 'step_up', 'step_up_required', 'step_up_required');
   }
-  // 8단계 zone_my_notes: 내 메모 목록·한 건 읽기와 수정만 여기까지 옵니다.
+  // 8단계 zone_my_notes: 자료 ID로 고른 내 메모 한 건 읽기와 수정만 여기까지 옵니다.
   return respond(request, 'allow', zoneRule.reasonCode, zoneRule.ruleId);
 }
