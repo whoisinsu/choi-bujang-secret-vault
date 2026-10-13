@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -21,6 +21,7 @@ export async function runAttackChecks(config) {
   if (config.step === 7) return runStep7Checks(app, config);
   if (config.step === 8) return runStep8Checks(app, config);
   if (config.step === 9) return runStep9Checks(app, config);
+  if (config.step === 10) return runStep10Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -290,5 +291,41 @@ async function runStep9Checks(app, config) {
       observed: `로컬 탐지기 가상 사건 의심 ${show(proposeRevocation(reads(121, 'a'.repeat(16))))}, 정상 ${show(proposeRevocation(reads(30, 'a'.repeat(16))))} (심판 판정 아님)` },
     { attackId: 'live_revocation', expected: '회수된 신원·세션의 재요청과 다른 자원 이동이 거부되고 탐지·회수 시간이 측정됨',
       observed: '미실행: 운영 반 엔진의 사건 전달·회수 집행이 이 저장소에 연결돼 있지 않음. 심판이 가상 사건으로 확인' },
+  ];
+}
+
+// 10단계: 한도 20개를 지키려고 7단계 가상 사건 세 줄을 한 줄로 묶고, 복원 경로·정책 사본 점검을 더합니다.
+// 로그인 없는 복원 요청과 정책 사본 검증만 실제로 실행합니다. B 로그인 복원은 토큰이 필요해 미실행입니다.
+async function runStep10Checks(app, config) {
+  let checks = await runStep9Checks(app, config);
+  checks = mergeChecks(checks, ['unusual_access_burst', 'region_only_change', 'unusual_access_after_step_up'],
+    'unusual_access_step_up', '복합 이상 사건은 step_up, 지역만 바뀐 사건과 재로그인 뒤 새 요청은 allow');
+  const restoreUrl = new URL('/api/restore', app);
+  let anonymousRestore;
+  try {
+    const response = await fetch(restoreUrl, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'b0000000-0000-4000-8000-000000000001' }) });
+    anonymousRestore = `토큰 없는 요청 HTTP ${response.status}`;
+  } catch (error) {
+    anonymousRestore = `요청 실패(${error.name})`;
+  }
+  let policy;
+  try {
+    const { execFileSync } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const out = execFileSync(process.execPath, [fileURLToPath(new URL('../scripts/policy-diff.mjs', import.meta.url))],
+      { encoding: 'utf8', timeout: 20000, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    policy = out.split('\n').slice(0, 3).join(' / ');
+  } catch (error) {
+    policy = `정책 사본 검증 중단: ${String(error.stderr ?? error.message).trim().slice(0, 120)}`;
+  }
+  return [
+    ...checks,
+    { attackId: 'restore_route_anonymous', expected: '토큰 없는 POST /api/restore는 401(복원하지 않음)',
+      observed: anonymousRestore },
+    { attackId: 'policy_baseline_verified', expected: '침해 전 정책 사본 검증 통과, 현재 시험 정책과의 변경 범위 표시',
+      observed: policy.slice(0, 300) },
+    { attackId: 'restore_b_note', expected: 'B가 변조·삭제된 자기 메모를 복원하면 ID·소유자·내용 해시가 사본과 같고, A의 B 메모 복원은 404',
+      observed: '미실행(자동 점검): 로그인 토큰을 점검 코드에 넣지 않음. 학생이 B·A 로그인 브라우저에서 직접 확인' },
   ];
 }

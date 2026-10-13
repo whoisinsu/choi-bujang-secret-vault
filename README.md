@@ -159,7 +159,7 @@ git grep -cE "$Q" 4f07b71
 ## 9단계: 도플갱어를 찾고 권한을 거둡니다
 
 - 입력 처리(`readDetectionEvents`, `src/detect.mjs`): 가상 사건에서 가명 사용자 `identity.sub`·요청 종류 `method`·시각 `at`만 읽고, 사건 계약(`docs/DETECT_EVENTS.md`)에 없는 기기 `deviceId`(16자리 16진수)·판정 `decision`(`allow`·`deny`·`step_up`)은 형식이 맞을 때만 읽고 아니면 `null`입니다. 가명 사용자가 없거나 이메일처럼 보이는 사건, 요청 종류·시각이 틀린 사건은 버리고 개수만 셉니다. 브라우저식 `userId`는 신원으로 쓰지 않으며, 메모 본문·토큰·실명은 복사·저장·출력하지 않습니다.
-- 탐지 규칙 `detect(events)`: 같은 가명 사용자의 `GET`이 어느 10분 구간에서든 120건을 넘을 때만 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject }`, 그 밖(정확히 120건, 다른 사용자끼리 합친 수, 10분 밖으로 흩어진 사건, GET이 아닌 요청)은 `{ action: 'observe' }`입니다. 지역·네트워크는 사건 계약에 없어 쓰지 않으므로 지역 하나로 확정하지 않습니다. 제작 요청은 "평소와 다른 네트워크 + 다량 조회" 조합이었지만 계약 사건에 네트워크가 없어 계약대로 다량 조회 규칙을 넣었고, 심판에서 통과하지 못하면 조합 규칙으로 바꿔 보기로 했습니다.
+- 탐지 규칙 `detect(events)`: 같은 가명 사용자의 `GET`이 어느 10분 구간에서든 120건을 넘을 때만 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject }`, 그 밖(정확히 120건, 다른 사용자끼리 합친 수, 10분 밖으로 흩어진 사건, GET이 아닌 요청)은 `{ action: 'observe' }`입니다. 지역·네트워크는 사건 계약에 없어 쓰지 않으므로 지역 하나로 확정하지 않습니다. 제작 요청은 "평소와 다른 네트워크 + 다량 조회" 조합이었지만 계약 사건에 네트워크가 없어 계약대로 다량 조회 규칙을 넣었고, 이 규칙으로 9단계 심판을 통과했습니다(조합 규칙으로 바꾸지 않음).
 - 회수 제안(별도 결과) `proposeRevocation(events)`: 탐지된 10분 구간의 사건이 확인된 가상 기기 하나에서만 왔을 때 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject, deviceId }`, 기기 값이 없거나 둘 이상이면 `null`입니다. `detect()`의 계약 결과와 판정기의 허용·거부 응답 형식은 바꾸지 않았고, 회수 API를 만들거나 기기 권한을 바꾸지 않았습니다.
 - 실제 회수 집행과 첫 의심 요청부터 회수까지 걸린 시간은 운영 반 엔진·심판이 확인합니다. 이 저장소에는 사건 전달·회수 집행이 연결돼 있지 않으며, `npm run detect:test` 통과는 그 연결을 뜻하지 않습니다.
 
@@ -183,6 +183,8 @@ git grep -cE "$Q" 4f07b71
   - 변조된 메모는 내용만 되돌리고, 지워진 메모는 다시 만듭니다. 그 뒤 그 한 건을 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 응답은 `{id, restored: 'content'|'recreated', contentSha256}`이며 본문은 돌려주지 않습니다.
   - 다른 메모는 건드리지 않습니다. 감사 기록 `public.restore_audit`에 결과·복원 전후 해시를 덧붙이며(본문·토큰 없음), DB 트리거로 수정·삭제·비우기를 막아 덧붙이기만 됩니다.
 - 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
+- 10단계 저장점: `aleph.config.json`은 `step: 10`, `restoreRoute`는 `POST /api/restore`이며 같은 경로를 `allowedRoutes`(여섯 개)에 더했습니다. 판정기 `RULE_IDS`는 9단계와 같습니다. 자기 점검은 한도 20개를 지키려 7단계 가상 사건 세 줄을 한 줄로 묶고, 토큰 없는 `POST /api/restore`(실제 전송)·정책 사본 검증(`policy:diff` 실행 결과)·B 메모 복원(미실행)을 더했습니다. 정책 사본은 9단계 기준이라 `policy:diff`는 이번 저장점에서 바꾼 `aleph.config.json`을 차이로 보여 줍니다.
+
 ### 복구 뒤 1~9단계 다시 확인하는 순서
 
 복구한 직후 아래 순서대로 다시 실행합니다. 결과 칸은 실제로 실행한 결과만 적고, 실행하지 않은 것은 **미실행**으로 둡니다. 비밀번호·토큰은 기록하지 않습니다. `U=https://choi-bujang-secret-vault-blue-tau.vercel.app`
