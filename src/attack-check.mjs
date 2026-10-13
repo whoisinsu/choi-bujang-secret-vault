@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -18,6 +18,7 @@ export async function runAttackChecks(config) {
   if (config.step === 4) return runStep4Checks(app, config);
   if (config.step === 5) return runStep4Checks(app, config);
   if (config.step === 6) return runStep6Checks(app, config);
+  if (config.step === 7) return runStep7Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -195,5 +196,32 @@ async function runStep6Checks(app, config) {
       observed: `${await practice(true)} (심판 판정 아님)` },
     { attackId: 'unregistered_device_read', expected: '미등록 기기(deviceRegistered: false)의 요청은 deny·device_not_registered',
       observed: `${await practice(false)} (심판 판정 아님, 실제 미등록 기기 접속은 미실행)` },
+  ];
+}
+
+// 7단계: 6단계 점검에 더해 판정기에 복합 이상 가상 사건을 재로그인 전·후로 넣어 본 결과를 기록합니다.
+// 제공 엔진이 새 로그인 시각을 검증하는 연결이 이 환경에 없어 실제 자료 차단은 미실행으로 남깁니다.
+async function runStep7Checks(app, config) {
+  const { decide } = await import('./decider.mjs');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+  const { normal, suspicious } = fixtureRequests();
+  const practice = async (request) => {
+    try {
+      const { decision, reasonCode } = await decide(request);
+      return `로컬 판정기 가상 사건 ${decision}·${reasonCode} (심판 판정 아님)`;
+    } catch (error) {
+      return `로컬 판정기 오류(${error.name})`;
+    }
+  };
+  return [
+    ...await runStep6Checks(app, config),
+    { attackId: 'unusual_access_burst', expected: '새벽 시각+처음 보는 네트워크+최근 10분 사건 10건 이상은 step_up·step_up_required',
+      observed: await practice(suspicious) },
+    { attackId: 'region_only_change', expected: '지역만 바뀐 사건은 차단하지 않고 allow',
+      observed: await practice({ ...normal, signals: { ...normal.signals, region: 'foreign' } }) },
+    { attackId: 'unusual_access_after_step_up', expected: '같은 복합 사건이라도 재로그인 60초 뒤 새 요청은 allow',
+      observed: await practice({ ...suspicious, requestId: crypto.randomUUID(), stepUp: { verified: true, authAgeSeconds: 60 } }) },
+    { attackId: 'live_step_up_block', expected: '실제 자료 요청이 재로그인 전 막히고 새 로그인 뒤 허용됨',
+      observed: '미실행: 제공 엔진의 새 로그인 시각 검증 연결이 이 환경에 없음. 자료 API는 판정기를 부르지 않음' },
   ];
 }
