@@ -98,6 +98,24 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 로그인이 서버 함수를 거치므로 Supabase Auth의 요청 한도가 Vercel 서버 주소 기준으로 함께 적용됩니다. `POST /api/notes`에 다른 사람 메모의 `id`를 넣으면 409로 그 id가 있다는 사실은 알 수 있습니다. 2단계 `vault_notes` 테이블은 화면에서 쓰지 않지만 남아 있습니다(`anon`·`authenticated` 권한 회수, `PUBLIC` 회수는 하지 않음). 옛 공개 커밋과 옛 배포의 과거 노출도 그대로입니다.
 
+## 6단계: 등록한 기기만 자료실에 들어옵니다
+
+- 판정기(`src/decider.mjs`)에 규칙 `device_registered`를 넣었습니다. 요청 계약(`docs/DECIDER_REQUEST.md`)의 `request.deviceRegistered`만 봅니다. 값이 정확히 `true`가 아니면(`false`, 값 없음, 문자열 `"true"` 등) `deny`·`device_not_registered`, 등록 기기의 읽기(`GET`)는 `allow`·`approved`입니다. 등록 기기의 쓰기 요청은 아직 규칙이 없어 시작 틀 `starter.deny`(`starter_not_ready`)로 거부됩니다.
+- `RULE_IDS`는 실제로 쓰는 `starter.deny`, `device_registered` 두 개입니다. 계약에 없는 `request.device`·`request.identity`·`request.geo`·`request.role`은 쓰지 않습니다.
+- 기기 인증서(mTLS) 검사와 사용자 토큰·기기 대조는 반 엔진·릴레이가 판정기보다 먼저 합니다. 이번 과정에는 따로 설치할 접속 프로그램이 없고, 인증서·CA·서명 키를 만들거나 저장소에 넣지 않았습니다. 미등록 기기로 실제 접속하는 공격은 심판이 맡습니다.
+- 자료실 주소·화면·서버 함수·`allowedRoutes`는 5단계 그대로입니다.
+
+### 확인 순서
+
+1. 저장소 폴더 터미널에서 `npm run decider:test`를 실행합니다.
+2. `통과 · 등록 기기의 정상 요청`이 나오는지 봅니다(등록 기기 GET → `allow`).
+3. `통과 · 미등록 기기의 가상 요청`이 나오는지 봅니다(`deviceRegistered: false` → `deny`·`device_not_registered`. 다른 결과면 `확인 필요`로 나오고 종료 코드가 1입니다).
+4. 마지막 줄 "이 명령은 가상 요청으로 연습하며 심판 통과 증거가 아닙니다."를 확인합니다. 이 결과는 로컬 연습이며 심판 판정이 아닙니다.
+
+- 6단계 저장점: `aleph.config.json`은 `step: 6`입니다. 자기 점검(`src/attack-check.mjs`)은 5단계 점검(로그인 없는 요청·위조 토큰·anon 키 원본 경로 직접 요청)에 더해, 판정기에 등록·미등록 가상 요청을 넣은 결과를 "심판 판정 아님"으로 기록합니다. 실제 미등록 기기 접속은 미실행입니다.
+
+**남은 점:** 판정기에는 쓰기 허용 규칙과 7단계 추가 확인(`step_up_required`)이 아직 없습니다. 허용 이유 코드 `approved`는 계약 예시를 따른 것이며, 운영 등록부의 허용 코드 목록은 저장소에 없어 대조하지 못했습니다.
+
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 
 - 경보: `xdr/fixtures/brute-force.json`(수업용 Wazuh 모양 28건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.
@@ -107,7 +125,7 @@ git grep -cE "$Q" 4f07b71
 - 다시 실행하는 방법: `npm run xdr:run -- brute-force` → `xdr/brute-force/result.json`의 `counts`가 `{"block":10,"alert":9,"record":9}`, 정상 이벤트(bf-20~28)는 모두 `record`입니다. `node xdr/brute-force/respond.mjs` → 거부 규칙 9개, bf-01~10 주소만 거부되고 나머지는 통과합니다. `node xdr/brute-force/read-alerts.mjs` → `경보 28건 · 뽑은 줄 28줄 · 일치`.
 - 격리 확인: `decide.mjs`·`patterns.mjs`만 빈 폴더에 두고 환경변수를 비우고 그 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 28건 모두 같았습니다(가장 느린 경보 1ms). 실제로 인터넷을 끄고 돌린 것은 아닙니다.
 
-**남은 점:** 판정기 요청 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소가 없어 거부 규칙(`isDenied`)은 아직 실제 요청에 적용되지 않습니다. 확인은 시험 경보를 다시 흘린 규칙 대조입니다. 판정기도 아직 시작 틀(모든 요청 거부)입니다.
+**남은 점:** 판정기 요청 계약(`docs/DECIDER_REQUEST.md`)에는 출발 주소가 없어 거부 규칙(`isDenied`)은 아직 실제 요청에 적용되지 않습니다. 확인은 시험 경보를 다시 흘린 규칙 대조입니다(6단계 판정기는 기기 등록 여부만 봅니다).
 
 ## 보너스 xdr-02: 웹 주입 공격 (web-injection)
 

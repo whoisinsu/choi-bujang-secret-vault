@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -17,6 +17,7 @@ export async function runAttackChecks(config) {
   if (config.step === 3) return runStep3Checks(app);
   if (config.step === 4) return runStep4Checks(app, config);
   if (config.step === 5) return runStep4Checks(app, config);
+  if (config.step === 6) return runStep6Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -171,5 +172,28 @@ async function runStep4Checks(app, config) {
       observed: `anon 키 직접 요청 ${anon.DELETE}` },
     { attackId: 'cross_user_note_access', expected: 'B 로그인으로 A 메모 id에 GET·PUT·DELETE하면 404, A 메모 그대로',
       observed: '미실행(자동 점검): 로그인 토큰을 점검 코드에 넣지 않음. 학생이 B 로그인 브라우저에서 직접 확인' },
+  ];
+}
+
+// 6단계: 5단계 점검에 더해 src/decider.mjs에 등록 기기·미등록 기기 가상 요청을 넣어 본 결과를 기록합니다.
+// 로컬 판정기 연습일 뿐 반 엔진이나 심판의 판정이 아니며, 실제 미등록 기기 접속은 보내지 않습니다.
+async function runStep6Checks(app, config) {
+  const { decide } = await import('./decider.mjs');
+  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+  const { normal } = fixtureRequests();
+  const practice = async (deviceRegistered) => {
+    try {
+      const { decision, reasonCode } = await decide({ ...normal, deviceRegistered });
+      return `로컬 판정기 가상 요청 ${decision}·${reasonCode}`;
+    } catch (error) {
+      return `로컬 판정기 오류(${error.name})`;
+    }
+  };
+  return [
+    ...await runStep4Checks(app, config),
+    { attackId: 'registered_device_read', expected: '등록 기기(deviceRegistered: true)의 GET 요청은 allow',
+      observed: `${await practice(true)} (심판 판정 아님)` },
+    { attackId: 'unregistered_device_read', expected: '미등록 기기(deviceRegistered: false)의 요청은 deny·device_not_registered',
+      observed: `${await practice(false)} (심판 판정 아님, 실제 미등록 기기 접속은 미실행)` },
   ];
 }
