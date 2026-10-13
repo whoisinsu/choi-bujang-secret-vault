@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -20,6 +20,7 @@ export async function runAttackChecks(config) {
   if (config.step === 6) return runStep6Checks(app, config);
   if (config.step === 7) return runStep7Checks(app, config);
   if (config.step === 8) return runStep8Checks(app, config);
+  if (config.step === 9) return runStep9Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -241,7 +242,8 @@ async function runStep8Checks(app, config) {
       return `오류(${error.name})`;
     }
   };
-  const id = 'ca9ea280-7182-4291-96ab-9aeedb38c32b';
+  // 판정기 주체·기기·경로 표(OWN_NOTE_PATHS)에 있는 연습 메모 경로로 보냅니다(8단계 마지막 수정 뒤 기준).
+  const id = 'demo';
   return [
     ...await runStep7Checks(app, config),
     { attackId: 'zone_own_note_read_update', expected: '내 메모 한 건 읽기·수정 경로는 allow(소유자는 자료 API가 다시 대조)',
@@ -250,5 +252,43 @@ async function runStep8Checks(app, config) {
       observed: `로컬 판정기 가상 요청 ${await practice('PUT', '/notices/n1', 'PUT /notices/:id')} (심판 판정 아님)` },
     { attackId: 'zone_unknown_route', expected: ':id 자리 export·쿼리로 기능 선택·표에 없는 경로는 deny',
       observed: `로컬 판정기 가상 요청 export ${await practice('GET', '/notes/export', 'GET /notes/:id')}, 쿼리 ${await practice('GET', '/notes', 'GET /notes', { queryLength: 9 })}, 표 밖 ${await practice('GET', '/ai', 'GET /ai')} (심판 판정 아님)` },
+  ];
+}
+
+// 9단계: 제출 묶음의 점검 수 한도(20개)를 지키려고 8단계까지의 같은 성격 항목을 한 줄로 묶고,
+// 탐지기(src/detect.mjs)에 가상 조회 사건을 넣어 본 결과를 더합니다(심판 판정 아님).
+// 실제 회수 집행과 경과 시간은 운영 엔진·심판이 확인하므로 미실행으로 남깁니다.
+function mergeChecks(checks, ids, attackId, expected) {
+  const picked = checks.filter(item => ids.includes(item.attackId));
+  if (!picked.length) return checks;
+  const merged = { attackId, expected, observed: picked.map(item => `${item.attackId}: ${item.observed}`).join(' / ').slice(0, 300) };
+  const first = checks.findIndex(item => ids.includes(item.attackId));
+  const rest = checks.filter(item => !ids.includes(item.attackId));
+  rest.splice(first, 0, merged);
+  return rest;
+}
+
+async function runStep9Checks(app, config) {
+  let checks = await runStep8Checks(app, config);
+  checks = mergeChecks(checks, ['anonymous_api_note_create', 'anonymous_api_note_update', 'anonymous_api_note_delete'],
+    'anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 모두 401');
+  checks = mergeChecks(checks, ['anon_data_api_select', 'anon_data_api_insert', 'anon_data_api_update', 'anon_data_api_delete'],
+    'anon_data_api_direct', 'anon 키로 원본 자료 API(notes) SELECT·INSERT·UPDATE·DELETE는 모두 권한 없음(401·403)');
+  const { detect, proposeRevocation } = await import('./detect.mjs');
+  const reads = (count, deviceId) => Array.from({ length: count }, (_, i) => ({
+    at: new Date(Date.UTC(2026, 9, 1) + i * 2000).toISOString(), method: 'GET',
+    identity: { sub: 'learner_fixture' }, ...(deviceId ? { deviceId } : {}),
+  }));
+  const show = (value) => JSON.stringify(value);
+  return [
+    ...checks,
+    { attackId: 'detect_burst_read', expected: '같은 가명 사용자의 GET이 10분 안에 121건이면 propose_revocation·burst_read',
+      observed: `로컬 탐지기 가상 사건 ${show(detect(reads(121)))} (심판 판정 아님)` },
+    { attackId: 'detect_normal_reads', expected: '정확히 120건·정상 30건은 observe(정상 사건 유지)',
+      observed: `로컬 탐지기 가상 사건 120건 ${show(detect(reads(120)))}, 30건 ${show(detect(reads(30)))} (심판 판정 아님)` },
+    { attackId: 'revocation_proposal_device', expected: '확인된 가상 기기 하나의 폭주 조회만 그 기기를 대상으로 한 회수 제안, 정상은 제안 없음',
+      observed: `로컬 탐지기 가상 사건 의심 ${show(proposeRevocation(reads(121, 'a'.repeat(16))))}, 정상 ${show(proposeRevocation(reads(30, 'a'.repeat(16))))} (심판 판정 아님)` },
+    { attackId: 'live_revocation', expected: '회수된 신원·세션의 재요청과 다른 자원 이동이 거부되고 탐지·회수 시간이 측정됨',
+      observed: '미실행: 운영 반 엔진의 사건 전달·회수 집행이 이 저장소에 연결돼 있지 않음. 심판이 가상 사건으로 확인' },
   ];
 }

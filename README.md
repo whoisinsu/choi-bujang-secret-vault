@@ -136,7 +136,7 @@ git grep -cE "$Q" 4f07b71
 ## 8단계: 자료마다 갈 수 있는 구역을 나눕니다
 
 - 자원 ID(`src/resources.mjs`): 내 메모는 구역 `my_notes`(자원 ID `notes`, `notes/<id>`), 강사 공지는 구역 `class_notices`(`notices`, `notices/<id>`)입니다. 서버가 요청 메서드·경로로만 만들고, Vercel 주소(`/api/notes/…`)와 판정 계약의 경로(`/notes/…`)를 같은 자원으로 봅니다. 강사 공지는 자료·API가 없어 이름만 정했습니다. 화면 메뉴는 바꾸지 않았습니다.
-- 판정기 구역 규칙(`src/decider.mjs`): 엔진이 준 `subjectId`·`deviceId`·`method`·`route`·`path`·`queryLength`만 씁니다. 순서는 `device_registered` → `route_exact` → 거부로 정한 경로 → `step_up_required` → `zone_my_notes` 허용입니다.
+- 판정기 구역 규칙(`src/decider.mjs`): 엔진이 준 `subjectId`·`deviceId`·`method`·`route`·`path`·`queryLength`만 씁니다. 순서는 `device_registered` → `route_exact` → 거부로 정한 경로 → 주체·기기·경로 표(`OWN_NOTE_PATHS`) → `step_up_required` → `zone_my_notes` 허용입니다.
   - `route_exact`: 경로 표에 없는 route, 경로에 묶은 service(내 메모 `notes`, 공지 `notices`)와 다른 요청, 메서드가 다른 요청, path가 route 모양과 정확히 맞지 않는 요청, 쿼리가 있는 요청, `:id` 자리에 `export` 같은 기능 이름이 온 요청, 주체가 없거나 기기 ID 형식이 틀린 요청은 `deny`·`starter_not_ready`입니다.
   - `zone_my_notes`: 자료 ID로 고른 `GET /notes/:id`, `PUT /notes/:id`만 `allow`입니다. 자료를 고르지 않는 목록 `GET /notes`는 어느 구역의 메모가 섞일지 판정기가 알 수 없어 `deny`입니다(화면의 목록 `/api/notes`는 판정기를 거치지 않고 서버 함수가 본인 메모만 돌려줌). 메모 소유자는 판정 요청에 없으므로 내 메모인지는 자료 API가 확인합니다. 여기에 더해 주체(`subjectId`)·기기(`deviceId`)·정확한 경로(`path`) 조합이 판정기의 자원 경로 표(`OWN_NOTE_PATHS`)에 있어야 하며, 없으면 추가 확인보다 먼저 `deny`·`starter_not_ready`입니다(다른 사용자의 메모 경로 거부). 표에는 엔진 연습 요청의 주체 `learner_fixture`·기기 `aaaaaaaaaaaaaaaa`·경로 `/notes/demo`만 있어, 운영 엔진을 연결하면 엔진이 준 실제 주체·메모 경로를 더해야 합니다.
   - `zone_class_notices`: `PUT /notices/:id`는 `deny`·`starter_not_ready`입니다. 계약에 역할이 없어 강사를 가릴 수 없으므로 누구의 공지 수정도 허용하지 않습니다.
@@ -149,10 +149,28 @@ git grep -cE "$Q" 4f07b71
 2. 배포 뒤 A로 로그인한 화면에서 메모 목록·수정이 그대로 되는지 봅니다.
 3. B로 로그인한 브라우저 Console에서 A 메모 id로 `GET`·`PUT`(본문에 `role: 'instructor'`)·`DELETE /api/notes/:id`를 보내면 404·403·404이고 A 메모는 그대로여야 합니다.
 
-- 확인 기록: 가짜 로그인·가짜 DB를 붙여 메모 API 처리 함수를 직접 부른 로컬 실측에서 A 자기 메모 읽기·수정 200, B 목록 빈 배열, B의 A 메모 읽기·수정·삭제 404, 본문 role 403, 메모 API로 공지 수정 우회 403, 쿼리로 id·owner_id 지정 404였습니다. 배포 주소에서 로그인 토큰으로 한 실측은 아닙니다.
+- 확인 기록: 가짜 로그인·가짜 DB를 붙여 메모 API 처리 함수를 직접 부른 로컬 실측에서 A 자기 메모 읽기·수정 200, B 목록 빈 배열, B의 A 메모 읽기·수정·삭제 404, 본문 role 403, 메모 API로 공지 수정 우회 403, 쿼리로 id·owner_id 지정 404였습니다. 배포 주소에서도 학생이 직접 확인했습니다(커밋 `0d792bd` 배포): A의 목록·추가·수정·삭제 정상, B 로그인 Console에서 A 메모에 GET·PUT·DELETE 404, role 포함 PUT 403, `?id=` 같은 id 404(소유자 대조), `?owner_id=` 404.
 - 8단계 저장점: `aleph.config.json`은 `step: 8`, `allowedRoutes` 다섯 개는 그대로입니다. 자기 점검은 7단계 점검에 판정기 구역 규칙의 가상 요청 결과를 "심판 판정 아님"으로 더했습니다.
 
-**남은 점:** 심판 판정 S08_OTHER_ZONE_ALLOWED 대응으로 8단계 거부 이유 코드를 처음에 쓴 `route_not_allowed`·`notice_write_forbidden`에서 시작 틀이 쓰던 `starter_not_ready`로 바꿨습니다(운영 등록부의 허용 코드 목록을 확인하지 못해 이미 쓰인 코드를 택함, 규칙 이름으로 사유를 구분). 공지 경로 이름 `/notices`는 운영 등록부·엔진 경로와 대조하지 못했습니다. 공지 읽기 경로는 표에 없어 거부됩니다. B의 A 메모 접근은 자동 점검에서 미실행입니다.
+**심판 판정 기록:** 처음 제출에서 `S08_OTHER_ZONE_ALLOWED`(다른 구역 메모 조회 허용)가 나왔습니다. 판정기 경로를 `service`와 묶기, 주체·기기·경로 표, 거부 이유 코드를 `route_not_allowed`·`notice_write_forbidden`에서 `starter_not_ready`로 바꾸기는 점수를 바꾸지 못했고, 학생 허용 목록에서 자료를 고르지 않는 목록 조회 `GET /notes`를 뺀 커밋 `6b3ee68`로 통과했습니다. 앞의 세 변경은 판정을 해치지 않아 그대로 두었습니다. 그 사이 자료 API는 Vercel이 `/api/notes/:id` 주소에 `?id=`를 덧붙여 본인 수정까지 막혀, 경로와 같은 `id` 쿼리 하나만 허용하도록 고쳤습니다(`0d792bd`).
+
+**남은 점:** 공지 경로 이름 `/notices`는 운영 등록부·엔진 경로와 대조하지 못했습니다. 공지 읽기 경로는 표에 없어 거부됩니다. B의 A 메모 접근은 자동 점검에서 미실행입니다(학생이 배포 주소에서 직접 확인).
+
+## 9단계: 도플갱어를 찾고 권한을 거둡니다
+
+- 입력 처리(`readDetectionEvents`, `src/detect.mjs`): 가상 사건에서 가명 사용자 `identity.sub`·요청 종류 `method`·시각 `at`만 읽고, 사건 계약(`docs/DETECT_EVENTS.md`)에 없는 기기 `deviceId`(16자리 16진수)·판정 `decision`(`allow`·`deny`·`step_up`)은 형식이 맞을 때만 읽고 아니면 `null`입니다. 가명 사용자가 없거나 이메일처럼 보이는 사건, 요청 종류·시각이 틀린 사건은 버리고 개수만 셉니다. 브라우저식 `userId`는 신원으로 쓰지 않으며, 메모 본문·토큰·실명은 복사·저장·출력하지 않습니다.
+- 탐지 규칙 `detect(events)`: 같은 가명 사용자의 `GET`이 어느 10분 구간에서든 120건을 넘을 때만 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject }`, 그 밖(정확히 120건, 다른 사용자끼리 합친 수, 10분 밖으로 흩어진 사건, GET이 아닌 요청)은 `{ action: 'observe' }`입니다. 지역·네트워크는 사건 계약에 없어 쓰지 않으므로 지역 하나로 확정하지 않습니다. 제작 요청은 "평소와 다른 네트워크 + 다량 조회" 조합이었지만 계약 사건에 네트워크가 없어 계약대로 다량 조회 규칙을 넣었고, 심판에서 통과하지 못하면 조합 규칙으로 바꿔 보기로 했습니다.
+- 회수 제안(별도 결과) `proposeRevocation(events)`: 탐지된 10분 구간의 사건이 확인된 가상 기기 하나에서만 왔을 때 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject, deviceId }`, 기기 값이 없거나 둘 이상이면 `null`입니다. `detect()`의 계약 결과와 판정기의 허용·거부 응답 형식은 바꾸지 않았고, 회수 API를 만들거나 기기 권한을 바꾸지 않았습니다.
+- 실제 회수 집행과 첫 의심 요청부터 회수까지 걸린 시간은 운영 반 엔진·심판이 확인합니다. 이 저장소에는 사건 전달·회수 집행이 연결돼 있지 않으며, `npm run detect:test` 통과는 그 연결을 뜻하지 않습니다.
+
+### 확인 순서
+
+1. `npm run detect:test` → 여섯 줄 모두 `통과`(121건·200건은 회수 제안, 정상 30건·정확히 120건·다른 사용자 각 100건·흩어진 200건은 observe). 로컬 가상 사건 연습이며 심판 판정이 아닙니다.
+2. `npm run decider:test` → 네 줄 모두 `통과`(판정기는 9단계에서 바꾸지 않음).
+
+- 9단계 저장점: `aleph.config.json`은 `step: 9`입니다. `RULE_IDS`는 8단계와 같습니다. 자기 점검은 묶음 한도(20개)를 지키려고 로그인 없는 추가·수정·삭제 세 건과 anon 키 직접 요청 네 건을 각각 한 줄로 묶고, 탐지기 가상 사건 결과(폭주 121건 회수 제안, 120건·30건 observe, 기기 하나 대상 회수 제안)를 "심판 판정 아님"으로, 실제 회수는 미실행으로 기록합니다. 8단계 점검의 내 메모 경로는 판정기 표의 연습 경로 `/notes/demo`로 맞췄습니다.
+
+**남은 점:** 계약 사건에는 기기 값이 없어 연습 사건의 회수 제안(`proposeRevocation`)은 `null`입니다. 회수된 신원·세션의 재요청이나 다른 자원 이동을 판정기에서 거부하려면 엔진이 회수 사건의 `recentEvents.kind` 이름을 계약으로 제공해야 해, 이번에는 넣지 않았습니다.
 
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 
