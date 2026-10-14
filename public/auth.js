@@ -33,6 +33,9 @@ const deviceActions = document.querySelector('#device-actions');
 const deviceRequest = document.querySelector('#device-request');
 const deviceCheck = document.querySelector('#device-check');
 const deviceMessage = document.querySelector('#device-message');
+const warRoom = document.querySelector('#war-room');
+const warLoad = document.querySelector('#war-load');
+const warBody = document.querySelector('#war-body');
 
 // 11단계 기기 승인: 기기 키는 이 화면의 메모리에만 있습니다(개인키는 내보낼 수 없게 만들고, 어떤 브라우저
 // 저장소에도 넣지 않습니다). 새로고침하면 새 키가 되므로 승인을 다시 받아야 합니다.
@@ -60,6 +63,8 @@ function renderDevice() {
   deviceIdText.textContent = device.deviceId ?? '로그인하면 이 화면에서만 쓰는 기기 키를 만듭니다';
   deviceCheck.disabled = !device.deviceId;
   notesPanel.hidden = !(loggedIn && device.status === 'approved');
+  warRoom.hidden = !loggedIn;
+  if (!loggedIn) warBody.replaceChildren();
 }
 
 function resetDevice() {
@@ -381,4 +386,86 @@ logout.addEventListener('click', async () => {
   // 서버 로그아웃이 실패해도 이 브라우저의 세션은 지웁니다.
   update(null);
   showMessage(ok ? '로그아웃했습니다.' : '이 브라우저에서 로그아웃했습니다. 서버 세션 종료는 확인하지 못했습니다.', ok ? 'ok' : 'error');
+});
+
+// 12단계 탈환 작전실: 서버(/api/war-room)가 돌려준 요약을 그대로 보여 줍니다. 화면은 성공 여부를 스스로 정하지 않고,
+// 서버가 준 가린 기록을 다시 세어 서버의 수치와 같은지만 표시합니다. 서버 값은 textContent로만 넣습니다.
+const SOURCE_TEXT = { server_record: '서버 기록', local_virtual: '로컬 가상(엔진·심판 판정 아님)', not_run: '미실행' };
+
+function el(tag, text, attrs = {}) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = String(text);
+  for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, value);
+  return node;
+}
+
+function tableOf(head, rows) {
+  const table = el('table');
+  const tr = el('tr');
+  for (const h of head) tr.append(el('th', h));
+  table.append(tr);
+  for (const row of rows) {
+    const line = el('tr');
+    for (const cell of row) line.append(el('td', cell ?? '—'));
+    table.append(line);
+  }
+  return table;
+}
+
+function recount(records, key) {
+  return records.reduce((acc, row) => ({ ...acc, [row[key]]: (acc[row[key]] ?? 0) + 1 }), {});
+}
+
+function countsLine(label, serverCounts, records, key) {
+  const mine = recount(records, key);
+  const names = [...new Set([...Object.keys(serverCounts), ...Object.keys(mine)])].sort();
+  const match = names.every(name => (serverCounts[name] ?? 0) === (mine[name] ?? 0));
+  const text = names.length ? names.map(name => `${name} ${serverCounts[name] ?? 0}`).join(' · ') : '기록 없음';
+  return el('p', `${label}: ${text} — 기록 다시 세기: ${match ? '일치' : '불일치'}`, { 'data-match': String(match) });
+}
+
+function renderWarRoom(data) {
+  const parts = [];
+  const d = data.decider;
+  parts.push(el('h3', '판정기 규칙'), el('p', `출처: ${SOURCE_TEXT[d.source]} · 규칙 ${d.ruleIds.length}개: ${d.ruleIds.join(', ')}`, { class: 'src' }),
+    tableOf(['가상 요청', '결정', '이유 코드', '규칙'], d.results.map(r => [r.label, r.decision, r.reasonCode, r.ruleIds.join(', ')])),
+    countsLine('결정 수', d.counts, d.results, 'decision'));
+  const t = data.detection;
+  parts.push(el('h3', '탐지 사건'), el('p', `출처: ${SOURCE_TEXT[t.source]} · 실제 사건 전달: ${SOURCE_TEXT[t.liveEvents.source]}`, { class: 'src' }),
+    tableOf(['가상 사건', '결과', '이유 코드'], t.results.map(r => [r.label, r.action, r.reasonCode])),
+    countsLine('결과 수', t.counts, t.results, 'action'),
+    el('p', `기기 하나 대상 회수 제안: ${t.proposal ? `${t.proposal.action} · ${t.proposal.reasonCode} · 기기 ${t.proposal.device}` : '없음'}`));
+  const v = data.revocation;
+  parts.push(el('h3', '회수 상태'), el('p', `출처: ${SOURCE_TEXT[v.source]} · 회수 집행: ${SOURCE_TEXT[v.execution.source]}`, { class: 'src' }),
+    tableOf(['기기', '상태', '요청 시각', '승인 시각'], v.records.map(r => [r.device, r.status, r.requestedAt, r.approvedAt])),
+    countsLine('기기 상태 수', v.counts, v.records, 'status'));
+  const r = data.restore;
+  parts.push(el('h3', '복구 버전'),
+    el('p', `정책 사본: ${r.policy.version ?? '읽지 못함'} (커밋 ${r.policy.commit ?? '—'}, 파일 ${r.policy.fileCount}개, 사본 지문 ${r.policy.digestOk ? '맞음' : '맞지 않음'}) · 출처: ${SOURCE_TEXT[r.policy.source]} · 현재 정책과 차이: ${SOURCE_TEXT[r.policy.currentDiff?.source ?? 'not_run']}`, { class: 'src' }),
+    el('p', `메모 사본: ${r.backups.count}건 (출처: ${SOURCE_TEXT[r.backups.source]})`),
+    tableOf(['감사 번호', '시각', '메모', '결과'], r.audit.records.map(a => [a.seq, a.at, a.note, a.result])),
+    countsLine('복원 감사 결과 수', r.audit.counts, r.audit.records, 'result'),
+    el('p', `불러온 시각: ${data.generatedAt}`, { class: 'src' }));
+  warBody.replaceChildren(...parts);
+}
+
+warLoad.addEventListener('click', async () => {
+  warLoad.disabled = true;
+  warBody.replaceChildren(el('p', '작전실 요약을 불러오는 중입니다.'));
+  try {
+    let session = await freshSession();
+    if (!session?.access_token) throw new Error('로그인한 뒤에 할 수 있습니다.');
+    let response = await fetch('/api/war-room', { cache: 'no-store', headers: { Authorization: `Bearer ${session.access_token}` } });
+    if (response.status === 401) {
+      session = await freshSession(true);
+      if (session?.access_token) response = await fetch('/api/war-room', { cache: 'no-store', headers: { Authorization: `Bearer ${session.access_token}` } });
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.schema !== 'aleph.war-room.v1') throw new Error(`작전실 요약을 받지 못했습니다. (${data.error ?? response.status})`);
+    renderWarRoom(data);
+  } catch (error) {
+    warBody.replaceChildren(el('p', error.message));
+  } finally {
+    warLoad.disabled = false;
+  }
 });
