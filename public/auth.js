@@ -3,10 +3,10 @@
 // Vercel 서버 함수(/api/auth/login·refresh·logout)가 Supabase Auth에 대신 요청하고,
 // 메모는 /api/notes 서버 함수로만 다룹니다. 비밀번호와 토큰은 화면·콘솔에 출력하지 않습니다.
 
-const SESSION_KEY = 'vault-session';
-// 3·4단계의 Supabase SDK가 남긴 옛 세션은 더 쓰지 않으므로 지웁니다.
+// 11단계: 로그인 세션(access·refresh 토큰)은 이 화면의 메모리에만 둡니다. 브라우저 저장소에 쓰거나 읽지 않으므로
+// 새로고침하면 다시 로그인합니다. 예전 단계가 남긴 세션은 남아 있지 않도록 한 번 지웁니다.
 try {
-  localStorage.removeItem('sb-skevbebxatwbmomeoqtx-auth-token');
+  for (const old of ['vault-session', 'sb-skevbebxatwbmomeoqtx-auth-token']) localStorage.removeItem(old);
 } catch {
   // 저장소를 쓸 수 없는 브라우저에서는 건너뜁니다.
 }
@@ -34,8 +34,8 @@ const deviceRequest = document.querySelector('#device-request');
 const deviceCheck = document.querySelector('#device-check');
 const deviceMessage = document.querySelector('#device-message');
 
-// 11단계 기기 승인: 기기 키는 이 화면의 메모리에만 있습니다(개인키는 내보낼 수 없게 만들고, localStorage·
-// IndexedDB 같은 브라우저 저장소에 넣지 않습니다). 새로고침하면 새 키가 되므로 승인을 다시 받아야 합니다.
+// 11단계 기기 승인: 기기 키는 이 화면의 메모리에만 있습니다(개인키는 내보낼 수 없게 만들고, 어떤 브라우저
+// 저장소에도 넣지 않습니다). 새로고침하면 새 키가 되므로 승인을 다시 받아야 합니다.
 // 승인 여부는 서버(/api/devices)가 돌려준 기록만 따르고, 승인 요청 버튼을 눌렀다고 승인된 것으로 보지 않습니다.
 const device = { keyPair: null, deviceId: null, status: 'none' };
 const DEVICE_TEXT = {
@@ -91,23 +91,6 @@ function failureReason(code) {
   return `${REASONS[code] ?? '로그인하지 못했습니다.'} (${code})`;
 }
 
-function loadStoredSession() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(SESSION_KEY));
-    return typeof stored?.access_token === 'string' && typeof stored?.refresh_token === 'string' ? stored : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeSession(session) {
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // 저장소를 쓸 수 없으면 이 창에서만 로그인 상태를 유지합니다.
-  }
-}
 
 async function authCall(path, { payload, bearer } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -154,7 +137,6 @@ async function freshSession(force = false) {
   refreshing ??= authCall('/api/auth/refresh', { payload: { refresh_token: currentSession.refresh_token } })
     .then(({ ok, data }) => {
       currentSession = ok ? data : null;
-      storeSession(currentSession);
       if (!ok) update(null);
       return currentSession;
     })
@@ -371,7 +353,7 @@ for (const [button, method, done] of [[deviceRequest, 'POST', '승인을 요청�
   });
 }
 
-update(loadStoredSession());
+update(null);
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -386,7 +368,6 @@ form.addEventListener('submit', async (event) => {
     showMessage(failureReason(code), 'error');
     return;
   }
-  storeSession(data);
   form.reset();
   showMessage('로그인했습니다.', 'ok');
   update(data);
@@ -398,7 +379,6 @@ logout.addEventListener('click', async () => {
   const { ok } = token ? await authCall('/api/auth/logout', { bearer: token }) : { ok: true };
   logout.disabled = false;
   // 서버 로그아웃이 실패해도 이 브라우저의 세션은 지웁니다.
-  storeSession(null);
   update(null);
   showMessage(ok ? '로그아웃했습니다.' : '이 브라우저에서 로그아웃했습니다. 서버 세션 종료는 확인하지 못했습니다.', ok ? 'ok' : 'error');
 });
