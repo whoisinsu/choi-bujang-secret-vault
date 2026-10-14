@@ -1,0 +1,8 @@
+{"seq":1,"at":"2026-10-13T07:49:04.743872+00:00","result":"requested","isTestB":true}
+{"seq":2,"at":"2026-10-13T07:49:07.924815+00:00","result":"restored_content","isTestB":true}
+{"seq":3,"at":"2026-10-13T07:50:51.177405+00:00","result":"requested","isTestB":false}
+{"seq":4,"at":"2026-10-13T07:50:52.512488+00:00","result":"backup_not_found","isTestB":false}
+{"seq":5,"at":"2026-10-13T08:22:55.203649+00:00","result":"requested","isTestB":false}
+{"seq":6,"at":"2026-10-13T08:22:55.721748+00:00","result":"backup_not_found","isTestB":false}
+{"seq":7,"at":"2026-10-13T08:31:03.219157+00:00","result":"requested","isTestB":true}
+{"seq":8,"at":"2026-10-13T08:31:06.419372+00:00","result":"recreated","isTestB":true}

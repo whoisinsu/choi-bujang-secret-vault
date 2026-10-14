@@ -182,6 +182,7 @@ git grep -cE "$Q" 4f07b71
   - 사본의 ID·소유자·내용 해시(`sha256(sha256(title) ‖ sha256(body))`)를 대조해 틀리면 409 `BACKUP_VERIFY_FAILED`, 같은 id가 다른 사람 소유로 있으면 덮어쓰지 않고 409 `RESTORE_OWNER_CONFLICT`입니다.
   - 변조된 메모는 내용만 되돌리고, 지워진 메모는 다시 만듭니다. 그 뒤 그 한 건을 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 응답은 `{id, restored: 'content'|'recreated', contentSha256}`이며 본문은 돌려주지 않습니다.
   - 다른 메모는 건드리지 않습니다. 감사 기록 `public.restore_audit`에 결과·복원 전후 해시를 덧붙이며(본문·토큰 없음), DB 트리거로 수정·삭제·비우기를 막아 덧붙이기만 됩니다.
+  - 감사 기록 사본: DB의 `restore_audit`는 심판이 볼 수 없으므로, 학생이 SQL Editor에서 조회한 줄(`seq`·`at`·`result`·우리 테스트 B 여부)을 `policy/restore-audit.jsonl`에 덧붙이기만 하는 방식으로 남깁니다. 기존 줄은 지우거나 고치지 않습니다.
 - 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
 - 10단계 저장점: `aleph.config.json`은 `step: 10`, `restoreRoute`는 `POST /api/restore`입니다. 처음에는 같은 경로를 `allowedRoutes`에도 더했지만, 재제출에서도 `S10_AUDIT_DROPPED`가 남고 심판 제출 뒤 `restore_audit`에 새 줄이 없어(1~4번은 학생 확인) "지정한 한 건 밖의 규칙 변경"으로 보고 `allowedRoutes`는 9단계와 같은 다섯 개로 되돌렸습니다. 판정기 `RULE_IDS`는 9단계와 같습니다. 자기 점검은 한도 20개를 지키려 7단계 가상 사건 세 줄을 한 줄로 묶고, 토큰 없는 `POST /api/restore`(실제 전송)·정책 사본 검증(`policy:diff` 실행 결과)·B 메모 복원(미실행)을 더했습니다. 정책 사본은 9단계 기준이라 `policy:diff`는 이번 저장점에서 바꾼 `aleph.config.json`을 차이로 보여 줍니다.
 
@@ -199,7 +200,7 @@ git grep -cE "$Q" 4f07b71
 | 가-2 | `policy/restore-log.jsonl`을 연다 (정책을 되돌린 경우) | 이전 줄은 그대로, 이번 복원 한 줄이 끝에 추가 | 미실행(정책 파일을 되돌리지 않아 `policy/restore-log.jsonl`이 생기지 않음) |
 | 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: 변조 뒤(커밋 `4a0b23f` 배포, 학생 B 로그인) — `200 restored: content`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 2. 삭제 뒤(커밋 `fb05ec5` 배포, 학생 B 로그인) — 화면에서 삭제한 뒤 `200 restored: recreated`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 8 |
 | 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (학생 A 로그인) — 감사 기록 4번 `backup_not_found`로 거부 확인. A 메모 그대로인지는 기록하지 않음 |
-| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: — 1·2 `requested`→`restored_content`(B, 16:49 KST), 3·4 `requested`→`backup_not_found`(A, 16:50), 5·6 `requested`→`backup_not_found`(B가 아닌 소유자, 17:22:55), 7·8 `requested`→`recreated`(B, 17:31). 이전 줄은 그대로 남음 |
+| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: — 1·2 `requested`→`restored_content`(B, 16:49 KST), 3·4 `requested`→`backup_not_found`(A, 16:50), 5·6 `requested`→`backup_not_found`(B가 아닌 소유자, 17:22:55), 7·8 `requested`→`recreated`(B, 17:31). 이전 줄은 그대로 남음 이 여덟 줄을 저장소 `policy/restore-audit.jsonl`에 그대로 옮겨 보존(사용자 ID·본문 없음) |
 
 **나. 이전에 막던 요청이 다시 거부되는지 (금지 요청)**
 
