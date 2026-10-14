@@ -87,7 +87,7 @@ git grep -cE "$Q" 4f07b71
 
 ## 5단계: 자료 요청을 서버 한곳으로
 
-- 브라우저 코드(`public/auth.js`)에는 Supabase 주소·키·SDK가 없습니다. 메모 읽기·추가·수정·삭제는 Vercel 서버 함수 `/api/notes`, `/api/notes/:id`를, 로그인·토큰 갱신·로그아웃은 서버 함수 `POST /api/auth/login`(`{email,password}`), `POST /api/auth/refresh`(`{refresh_token}`), `POST /api/auth/logout`(Bearer)을 부릅니다. 서버(`src/auth-proxy.mjs`)가 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`로 Supabase Auth에 대신 요청하고, 토큰·만료 시각·이메일만 돌려줍니다. 비밀번호와 토큰은 저장하거나 로그에 남기지 않으며, 서버 전용 secret key는 Auth 호출에 쓰지 않습니다. 브라우저는 세션을 `localStorage`의 `vault-session`에 두고 만료 60초 전이나 401 때 한 번 갱신합니다.
+- 브라우저 코드(`public/auth.js`)에는 Supabase 주소·키·SDK가 없습니다. 메모 읽기·추가·수정·삭제는 Vercel 서버 함수 `/api/notes`, `/api/notes/:id`를, 로그인·토큰 갱신·로그아웃은 서버 함수 `POST /api/auth/login`(`{email,password}`), `POST /api/auth/refresh`(`{refresh_token}`), `POST /api/auth/logout`(Bearer)을 부릅니다. 서버(`src/auth-proxy.mjs`)가 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`로 Supabase Auth에 대신 요청하고, 토큰·만료 시각·이메일만 돌려줍니다. 비밀번호와 토큰은 저장하거나 로그에 남기지 않으며, 서버 전용 secret key는 Auth 호출에 쓰지 않습니다. 5단계 당시 브라우저는 세션을 `localStorage`의 `vault-session`에 두고 만료 60초 전이나 401 때 한 번 갱신합니다. (11단계 `f852d5b`부터 세션은 화면 메모리에만 두고 브라우저 저장소에 저장하지 않습니다.)
 - `/aleph.json`에는 3단계부터 `aleph.config.json`의 `allowedRoutes`가 함께 기록됩니다(`scripts/deployment-identity.mjs`).
 - DB 권한(`supabase/step5_revoke.sql`, `public.notes`만): `PUBLIC`·`anon`·`authenticated`의 직접 권한을 모두 거뒀습니다. RLS와 4단계 정책은 켠 채로 둡니다. 실행 결과의 적용 전후 대조표에서 `authenticated`의 SELECT·INSERT·UPDATE·DELETE가 사라지고 세 역할 모두 권한이 없으며, 서버 전용 역할(service_role)은 읽기·쓰기를 유지하는 것을 확인했습니다.
 - 서버 함수의 로그인 검사(`src/verify-login.mjs`)와 소유자 대조, 서버 전용 환경변수는 그대로입니다.
@@ -251,7 +251,11 @@ git grep -cE "$Q" 4f07b71
 
 - 로컬 시험(가짜 로그인·메모리 DB): 승인 전 메모 목록·읽기와 기기 헤더 없음 403, SQL 승인 흉내 뒤 목록·수정 200, B가 A의 승인 기기 ID 헤더로 요청 403, 승인 취소 뒤 403, 본문에 `status`·개인키 `d`를 섞은 승인 요청 400, B가 A 공개키로 요청 409, 저장된 기록에 개인키 없음.
 
-**남은 점:** 요청 서명이 아직 없습니다. 기기 ID는 비밀값이 아니어서, 같은 사용자의 로그인 토큰과 승인된 기기 ID를 함께 가진 사람은 서명 없이 보호 요청을 보낼 수 있고, 경로·본문을 바꿔도 막지 못합니다(11단계 괴물 세 마리). 로그인 토큰은 아직 5단계 방식대로 `localStorage`에 있습니다. 승인 SQL의 자리 표시 `<…>`는 지우고 16자리만 넣어야 합니다.
+- 11단계 이후 변경(저장점 `610760c` 뒤): `bb628a1` 판정기가 `null`·`undefined`·문자열 같은 객체가 아닌 요청에도 예외 없이 형식에 맞는 응답(`deny`·`device_not_registered`)을 돌려주고, 주석에서도 계약 밖 이름 표기를 뺐습니다. `f852d5b` 로그인 세션(access·refresh 토큰)을 `localStorage`에 저장·읽지 않고 화면 메모리에만 둡니다(예전 세션은 시작할 때 지우기만 함). 새로고침하면 다시 로그인합니다.
+- 100점 조건 점검(학생 요청으로 실행): 저장소를 새로 받아 `npm install` 종료 코드 0(`610760c`), 판정기가 계약 이름만 읽고 10가지 가상 요청 모두 형식에 맞는 응답·`RULE_IDS` 안의 규칙, `step` 11 이상.
+- 심판 판정 기록: 11단계는 커밋 `f852d5b`로 **심판 통과**했습니다. 그 전 `bb628a1` 제출에서 `S11_KEY_EXPOSED`(화면 묶음·브라우저 저장소에 키)가 나왔고, 화면이 로그인 토큰을 `localStorage`에 두던 것을 메모리로 옮겨 풀렸습니다.
+
+**남은 점:** 요청 서명이 아직 없습니다. 기기 ID는 비밀값이 아니어서, 같은 사용자의 로그인 토큰과 승인된 기기 ID를 함께 가진 사람은 서명 없이 보호 요청을 보낼 수 있고, 경로·본문을 바꿔도 막지 못합니다(11단계 괴물 세 마리). 승인 SQL의 자리 표시 `<…>`는 지우고 16자리만 넣어야 합니다.
 
 ## 보너스 xdr-01: 무차별 로그인 공격 (brute-force)
 
@@ -275,6 +279,15 @@ git grep -cE "$Q" 4f07b71
 - 격리 확인: `decide.mjs` 한 파일만 빈 폴더에 두고 환경변수를 비우고 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 26건 모두 같았습니다(가장 느린 경보 1ms).
 
 **남은 점:** 판정기 요청 계약에 출발 주소가 없어 거부 규칙은 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조).
+
+## 12단계: 탈환 작전실을 완성합니다
+
+- 작전실 요약(`src/war-room-api.mjs`, `api/war-room.js`, 화면 `public/index.html`·`auth.js`의 "탈환 작전실"): `GET /api/war-room`은 로그인한 사용자 본인의 기록만 모읍니다. 판정기 규칙(`RULE_IDS`와 서버에서 `decide()`에 가상 요청 다섯 개를 넣은 결과), 탐지 사건(`detect()`·`proposeRevocation()` 가상 실행), 회수 상태(`device_registrations` 서버 기록), 복구 버전(정책 사본 버전·지문 검증, `notes_backup`·`restore_audit` 서버 기록)에 출처(서버 기록·로컬 가상·미실행)를 붙입니다. 메모 본문·제목·공개키·토큰은 넣지 않고 ID는 앞 4자리만 보여 줍니다. 화면은 서버가 준 가린 기록을 다시 세어 서버 수치와 "일치/불일치"만 표시하고 성공 문구를 만들지 않습니다. 로그인 없이 부르면 401, 쿼리 404, GET이 아니면 405입니다.
+- 재시험 실측 표(`scripts/retest.mjs` = `npm run retest`, 작전실 **로그인 재시험**): 로그인 없는 요청은 명령이, 로그인·승인 기기가 필요한 요청은 화면이 배포 API에 실제로 보내고 요청 ID(`X-Request-Id`)·서버 요청 ID(`x-vercel-id`)·실제 상태·확인 시각을 남깁니다. 브라우저 결과를 `retest/browser.json`에 붙이면 `retest/results.md`·`json`으로 합쳐지며, 붙이지 않은 줄은 미실행입니다. 판정기·탐지기 줄은 로컬 가상으로 따로 표시합니다.
+- 실측 결과(커밋 `a889b50` 배포, 2026-10-14): 29줄 모두 실행·불일치 0·미실행 0 — 로그인 없는 배포 API 14줄(금지 요청 404·401, 정상 `/`·`/aleph.json`·manifest 200), 학생 A 로그인·승인 기기 8줄(정상 목록·읽기·같은 값 수정 200, 금지 role 403·미승인 기기 403·B 메모 읽기 404·`owner_id` 쿼리 404·B 메모 복원 404), 로컬 가상 7줄. 심판의 41종 공격은 미실행(심판이 실행)으로 표에 넣지 않았습니다.
+- 12단계 저장점: `aleph.config.json`은 `step: 12`, `allowedRoutes`에 `GET /api/war-room`을 더했습니다(여덟 개). 판정기 `RULE_IDS`는 그대로입니다. 자기 점검은 한도 20개를 지키려 로그인 없는 복원·기기 요청 두 줄과 엔진 연결 미실행 두 줄을 각각 묶고, 토큰 없는 `/api/war-room`(실제 전송)과 로그인 뒤 작전실 요약(미실행)을 더했습니다.
+
+**남은 점:** 요청 서명과 회수된 신원을 실제로 거부하는 장치는 없습니다(회수 집행은 ALEPH SDP 엔진 몫, 판정 계약에 회수 사건 이름이 없음). 작전실의 판정기·탐지기 결과는 로컬 가상이며 엔진·심판 판정이 아닙니다.
 
 ## 운영 안내 (검사 커밋 `6294c3b` 기준)
 

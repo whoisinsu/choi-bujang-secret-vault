@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -23,6 +23,7 @@ export async function runAttackChecks(config) {
   if (config.step === 9) return runStep9Checks(app, config);
   if (config.step === 10) return runStep10Checks(app, config);
   if (config.step === 11) return runStep11Checks(app, config);
+  if (config.step === 12) return runStep12Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -368,5 +369,29 @@ async function runStep11Checks(app, config) {
       observed: `manifest ${manifestNote}` },
     { attackId: 'device_approval_gate', expected: '승인 전 기기는 메모 API 403 DEVICE_NOT_APPROVED·자료 미표시, 서버 승인 뒤 기존 화면 정상',
       observed: '미실행(자동 점검): 로그인 토큰·기기 키를 점검 코드에 넣지 않음. 학생이 브라우저에서 직접 확인' },
+  ];
+}
+
+// 12단계: 한도 20개를 지키려 로그인 없는 복원·기기 요청 두 줄과 엔진 연결 미실행 두 줄을 각각 묶고,
+// 탈환 작전실 점검을 더합니다. 로그인 없는 /api/war-room만 실제로 보내고, 로그인 뒤 요약은 미실행입니다.
+// 로그인이 필요한 정상·금지 요청의 실측은 retest/results.md(학생 브라우저 로그인 재시험 포함)에 따로 남깁니다.
+async function runStep12Checks(app, config) {
+  let checks = await runStep11Checks(app, config);
+  checks = mergeChecks(checks, ['restore_route_anonymous', 'device_api_anonymous'], 'restore_device_anonymous',
+    '토큰 없는 POST /api/restore와 GET·POST /api/devices는 401');
+  checks = mergeChecks(checks, ['live_step_up_block', 'live_revocation'], 'engine_not_connected',
+    '재로그인 차단·회수 집행은 ALEPH SDP 엔진 연결이 필요해 이 저장소에서 미실행');
+  let warRoom;
+  try {
+    const response = await fetch(new URL('/api/war-room', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
+    warRoom = `토큰 없는 요청 HTTP ${response.status}`;
+  } catch (error) {
+    warRoom = `요청 실패(${error.name})`;
+  }
+  return [
+    ...checks,
+    { attackId: 'war_room_anonymous', expected: '토큰 없는 GET /api/war-room은 401(작전실 요약을 주지 않음)', observed: warRoom },
+    { attackId: 'war_room_summary', expected: '로그인 뒤 작전실 요약의 수치가 가린 서버 기록과 일치하고 메모 본문이 없음',
+      observed: '미실행(자동 점검): 로그인 토큰을 점검 코드에 넣지 않음. 학생이 작전실 화면에서 직접 확인' },
   ];
 }
