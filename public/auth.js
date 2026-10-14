@@ -36,6 +36,8 @@ const deviceMessage = document.querySelector('#device-message');
 const warRoom = document.querySelector('#war-room');
 const warLoad = document.querySelector('#war-load');
 const warBody = document.querySelector('#war-body');
+const warRetest = document.querySelector('#war-retest');
+const warRetestBody = document.querySelector('#war-retest-body');
 
 // 11단계 기기 승인: 기기 키는 이 화면의 메모리에만 있습니다(개인키는 내보낼 수 없게 만들고, 어떤 브라우저
 // 저장소에도 넣지 않습니다). 새로고침하면 새 키가 되므로 승인을 다시 받아야 합니다.
@@ -467,5 +469,76 @@ warLoad.addEventListener('click', async () => {
     warBody.replaceChildren(el('p', error.message));
   } finally {
     warLoad.disabled = false;
+  }
+});
+
+// 12단계 로그인 재시험: 이 화면의 로그인 세션과 승인된 기기로 정상·금지 요청을 배포 API에 실제로 보내고, 요청마다
+// 요청 ID·서버 요청 ID(x-vercel-id)·실제 상태·확인 시각을 기록합니다. 결과 JSON을 retest/browser.json에 붙여 넣으면
+// npm run retest가 로그인 없는 요청 결과와 한 표로 합칩니다. 토큰·기기 키·메모 본문은 결과에 넣지 않습니다.
+const B_NOTE_ID = 'b0000000-0000-4000-8000-000000000001';
+
+async function measure(rows, { stage, kind, label, expected, path, method = 'GET', payload, deviceId = device.deviceId, accept }) {
+  const requestId = crypto.randomUUID();
+  const at = new Date().toISOString();
+  const session = await freshSession();
+  const headers = { Authorization: `Bearer ${session?.access_token}`, 'X-Request-Id': requestId };
+  if (deviceId) headers['X-Device-Id'] = deviceId;
+  if (payload) headers['Content-Type'] = 'application/json';
+  let status;
+  let data = null;
+  let serverId = null;
+  try {
+    const response = await fetch(path, { method, cache: 'no-store', headers, body: payload ? JSON.stringify(payload) : undefined });
+    status = response.status;
+    serverId = response.headers.get('x-vercel-id');
+    data = await response.json().catch(() => null);
+  } catch (error) {
+    status = `요청 실패(${error.name})`;
+  }
+  const code = data && !Array.isArray(data) ? data.error ?? null : null;
+  rows.push({ stage, kind, label, expected, actual: `${status}${code ? ` ${code}` : ''}`, match: Boolean(accept(status, code, data)),
+    requestId, serverId, at });
+  return data;
+}
+
+warRetest.addEventListener('click', async () => {
+  warRetest.disabled = true;
+  warRetestBody.replaceChildren(el('p', '로그인 재시험을 실행하는 중입니다.'));
+  try {
+    if (!currentSession?.access_token) throw new Error('로그인한 뒤에 할 수 있습니다.');
+    if (device.status !== 'approved') throw new Error('서버가 이 기기를 승인한 뒤에 실행하세요. 정상 요청이 승인된 기기에서 허용되는지 보려는 시험입니다.');
+    const rows = [];
+    const list = await measure(rows, { stage: '4', kind: '정상', label: 'A 내 메모 목록', expected: '200, 내 메모 1건 이상', path: '/api/notes',
+      accept: (s, c, d) => s === 200 && Array.isArray(d) && d.length > 0 });
+    const own = Array.isArray(list) ? list[0] : null;
+    if (own) {
+      await measure(rows, { stage: '4', kind: '정상', label: 'A 내 메모 한 건 읽기', expected: '200', path: `/api/notes/${own.id}`,
+        accept: (s) => s === 200 });
+      await measure(rows, { stage: '4', kind: '정상', label: 'A 내 메모 같은 값으로 수정', expected: '200', path: `/api/notes/${own.id}`,
+        method: 'PUT', payload: { title: own.title, body: own.body }, accept: (s) => s === 200 });
+      await measure(rows, { stage: '8', kind: '금지', label: 'A role 포함 수정', expected: '403 ROLE_FIELD_REJECTED', path: `/api/notes/${own.id}`,
+        method: 'PUT', payload: { title: own.title, body: own.body, role: 'instructor' }, accept: (s, c) => s === 403 && c === 'ROLE_FIELD_REJECTED' });
+    }
+    await measure(rows, { stage: '11', kind: '금지', label: 'A 미승인 기기 ID로 목록', expected: '403 DEVICE_NOT_APPROVED', path: '/api/notes',
+      deviceId: '0000000000000000', accept: (s, c) => s === 403 && c === 'DEVICE_NOT_APPROVED' });
+    await measure(rows, { stage: '4', kind: '금지', label: 'A가 B 메모 읽기', expected: '404 NOTE_NOT_FOUND', path: `/api/notes/${B_NOTE_ID}`,
+      accept: (s, c) => s === 404 && c === 'NOTE_NOT_FOUND' });
+    await measure(rows, { stage: '8', kind: '금지', label: 'A 쿼리로 owner_id 지정', expected: '404 ROUTE_NOT_ALLOWED', path: '/api/notes?owner_id=x',
+      accept: (s, c) => s === 404 && c === 'ROUTE_NOT_ALLOWED' });
+    await measure(rows, { stage: '10', kind: '금지', label: 'A가 B 메모 복원', expected: '404 BACKUP_NOT_FOUND', path: '/api/restore', method: 'POST',
+      payload: { id: B_NOTE_ID }, accept: (s, c) => s === 404 && c === 'BACKUP_NOT_FOUND' });
+    const output = { schema: 'aleph.retest.browser.v1', account: currentSession.user?.email ?? '', device: `${device.deviceId.slice(0, 4)}…`, rows };
+    const area = el('textarea', JSON.stringify(output, null, 2), { rows: '12', readonly: '', 'aria-label': '로그인 재시험 결과 JSON' });
+    area.style.width = '100%';
+    warRetestBody.replaceChildren(
+      el('h3', '로그인 재시험 실측'),
+      tableOf(['단계', '구분', '요청', '기대', '실제', '일치', '요청 ID', '확인 시각'],
+        rows.map(r => [r.stage, r.kind, r.label, r.expected, r.actual, r.match ? '일치' : '불일치', r.requestId, r.at])),
+      el('p', `실행 ${rows.length}줄 · 불일치 ${rows.filter(r => !r.match).length}줄. 아래 JSON을 retest/browser.json에 붙여 넣고 npm run retest를 실행하면 한 표로 합쳐집니다.`, { class: 'src' }),
+      area);
+  } catch (error) {
+    warRetestBody.replaceChildren(el('p', error.message));
+  } finally {
+    warRetest.disabled = false;
   }
 });

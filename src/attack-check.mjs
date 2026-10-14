@@ -128,7 +128,7 @@ async function runStep3Checks(app) {
 // 4단계: 3단계의 로그인 없는 요청 점검에 더해, 공개용 anon(publishable) 키로 Supabase Data API의
 // notes 테이블에 직접 읽기·쓰기를 보내 HTTP 상태만 기록합니다. anon 키는 화면 코드에도 있는 공개 값입니다.
 // A·B 로그인 토큰은 점검 코드에 넣지 않으므로 상대 메모 접근은 자동으로 보내지 않고 미실행으로 남깁니다.
-const ANON_KEY = 'sb_publishable_zbvLeuDU_gLzfhjV-CwlFg_eXRUOOM9';
+export const ANON_KEY = 'sb_publishable_zbvLeuDU_gLzfhjV-CwlFg_eXRUOOM9';
 const A_NOTE_ID = 'ca9ea280-7182-4291-96ab-9aeedb38c32b';
 
 // 5단계부터는 aleph.config.json의 originalApiUrl(원본 자료 경로)에 그대로 보냅니다.
