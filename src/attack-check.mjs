@@ -374,102 +374,62 @@ async function runStep11Checks(app, config) {
   ];
 }
 
-// 12단계: 심판은 npm run bundle을 격리 환경에서 다시 실행합니다. 그 환경에서는 node:fs·path·url·child_process(git 읽기)·
-// crypto만 쓸 수 있고, 요청은 공개 HTTPS 주소로 GET·HEAD만 보낼 수 있습니다. 그래서 12단계 점검은 GET만 보내고,
-// 쓰기 요청(POST·PUT·PATCH·DELETE)이 필요한 점검과 로그인이 필요한 점검은 보내지 않고 observed를 not_run으로 둡니다.
-// 정책 사본은 다른 프로그램을 실행하지 않고 fs·crypto로 사본 지문만 다시 계산합니다.
-// 로그인·쓰기 요청의 실측은 학생이 따로 실행한 retest/results.md에 남아 있으며 여기서 대신하지 않습니다.
-async function getStatus(url, headers = {}) {
+// 12단계: 심판은 npm run bundle을 격리 환경에서 다시 실행하고, 자기 점검이 실제로 보낸 요청 기록을 attackId와
+// 대조합니다. 그 환경에서는 node:fs·path·url·child_process(git 읽기)·crypto만 쓸 수 있고, 요청은 공개 HTTPS 주소로
+// GET·HEAD만 보낼 수 있습니다. 그래서 12단계 점검은
+// - GET 요청마다 X-Request-Id(새 UUID)와 X-Aleph-Attack-Id(attackId)를 붙여 보내고 observed에 그 요청 ID를 적습니다.
+// - 요청을 보내지 않는 점검(쓰기 요청·로그인 필요·엔진 연결, 판정기·탐지기·정책 사본의 로컬 계산)은 observed를 not_run으로 둡니다.
+// 로그인·쓰기 요청과 판정기·탐지기 결과의 실측은 학생이 따로 실행한 retest/results.md에 있으며 여기서 대신하지 않습니다.
+async function sendGet(attackId, url, headers = {}) {
+  const { randomUUID } = await import('node:crypto');
+  const requestId = randomUUID();
   try {
-    const response = await fetch(url, { method: 'GET', headers, redirect: 'error', signal: AbortSignal.timeout(10000) });
+    const response = await fetch(url, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attackId, ...headers } });
     let body = null;
     try {
       body = await response.json();
     } catch {
       // JSON이 아니면 본문을 읽지 않습니다.
     }
-    return { status: response.status, body };
+    return { status: response.status, body, requestId };
   } catch (error) {
-    return { status: `요청 실패(${error.name})`, body: null };
+    return { status: `요청 실패(${error.name})`, body: null, requestId };
   }
 }
 
 async function runStep12Checks(app, config) {
-  const { decide } = await import('./decider.mjs');
-  const { detect, proposeRevocation } = await import('./detect.mjs');
-  const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
-  const { createHash, randomUUID } = await import('node:crypto');
-  const { readFileSync } = await import('node:fs');
-  const { normal, suspicious } = fixtureRequests();
-  const ask = async (change) => {
-    const { decision, reasonCode } = await decide({ ...normal, requestId: randomUUID(), ...change });
-    return `${decision}·${reasonCode}`;
-  };
-  const reads = (count, deviceId) => Array.from({ length: count }, (_, i) => ({
-    at: new Date(Date.UTC(2026, 9, 1) + i * 2000).toISOString(), method: 'GET', identity: { sub: 'learner_fixture' },
-    ...(deviceId ? { deviceId } : {}) }));
   const rowsOf = (data) => (Array.isArray(data) ? data.length : 0);
-
-  const staticFile = await getStatus(new URL('/data.json', app));
-  const list = await getStatus(new URL('/api/notes', app));
-  const forged = await getStatus(new URL('/api/notes', app), { Authorization: FORGED_TOKEN });
+  const path = (url) => `${url.pathname}${url.search}`;
   const anonUrl = new URL(config.originalApiUrl);
   anonUrl.search = 'select=id&limit=1';
-  const anon = await getStatus(anonUrl, { apikey: ANON_KEY });
-  const restoreGet = await getStatus(new URL('/api/restore', app));
-  const devices = await getStatus(new URL('/api/devices', app));
-  const warRoom = await getStatus(new URL('/api/war-room', app));
-  const manifest = await getStatus(new URL('/manifest.webmanifest', app));
-
-  let policy;
-  try {
-    const baseline = JSON.parse(readFileSync(new URL('../policy/baseline.json', import.meta.url), 'utf8'));
-    const files = baseline.files ?? {};
-    const digest = createHash('sha256').update(JSON.stringify(Object.keys(files).sort().map(p => [p, files[p]])), 'utf8').digest('hex');
-    policy = `정책 사본 ${baseline.version} 파일 ${Object.keys(files).length}개, 사본 지문 ${digest === baseline.digest ? '맞음' : '맞지 않음'}(fs·crypto로 계산, 현재 정책과의 차이는 계산하지 않음)`;
-  } catch (error) {
-    policy = `정책 사본을 읽지 못함(${error.name})`;
-  }
-  const afterStepUp = await ask({ signals: suspicious.signals, recentEvents: suspicious.recentEvents,
-    stepUp: { verified: true, authAgeSeconds: 60 } });
-
-  return [
-    { attackId: 'anonymous_static_note_read', expected: '비로그인 GET /data.json은 404',
-      observed: `GET HTTP ${staticFile.status}` },
-    { attackId: 'anonymous_api_note_list', expected: '토큰 없는 GET /api/notes는 401, 메모 0건',
-      observed: `GET HTTP ${list.status}, 메모 ${rowsOf(list.body)}건` },
-    { attackId: 'forged_token_note_list', expected: '서명이 맞지 않는 토큰의 GET /api/notes는 401, 메모 0건',
-      observed: `GET HTTP ${forged.status}, 메모 ${rowsOf(forged.body)}건` },
-    { attackId: 'anon_data_api_select', expected: 'anon 키로 원본 자료 API(notes) GET은 권한 없음(401·403)',
-      observed: `GET HTTP ${anon.status}, 행 ${rowsOf(anon.body)}개` },
-    { attackId: 'restore_route_get', expected: 'GET /api/restore는 복원하지 않고 405',
-      observed: `GET HTTP ${restoreGet.status}` },
-    { attackId: 'device_api_anonymous', expected: '토큰 없는 GET /api/devices는 401',
-      observed: `GET HTTP ${devices.status}` },
-    { attackId: 'war_room_anonymous', expected: '토큰 없는 GET /api/war-room은 401',
-      observed: `GET HTTP ${warRoom.status}` },
-    { attackId: 'install_manifest', expected: '설치형 앱 manifest GET 200, 이름·standalone(설치는 기기 승인이 아님)',
-      observed: `GET HTTP ${manifest.status}, 이름 ${typeof manifest.body?.name === 'string' ? '있음' : '없음'}, display ${manifest.body?.display ?? '없음'}` },
-    { attackId: 'anonymous_api_note_write', expected: '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)',
-      observed: 'not_run' },
-    { attackId: 'anon_data_api_write', expected: 'anon 키로 원본 notes INSERT·UPDATE·DELETE는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)',
-      observed: 'not_run' },
-    { attackId: 'restore_device_write_anonymous', expected: '토큰 없는 POST /api/restore·POST /api/devices는 401(쓰기 요청이라 보내지 않음)',
-      observed: 'not_run' },
-    { attackId: 'login_required_checks', expected: 'B의 A 메모 접근 404, B 메모 복원, 승인 전후 자료, 작전실 요약(로그인 필요)',
-      observed: 'not_run' },
-    { attackId: 'engine_not_connected', expected: '재로그인 차단·회수 집행(ALEPH SDP 엔진 연결 필요)',
-      observed: 'not_run' },
-    { attackId: 'device_registered_rule', expected: '판정기: 등록 기기 GET allow, 미등록 기기 deny·device_not_registered',
-      observed: `로컬 판정기 가상 요청 등록 ${await ask({})}, 미등록 ${await ask({ deviceRegistered: false })} (심판 판정 아님)` },
-    { attackId: 'unusual_access_step_up', expected: '판정기: 복합 이상은 step_up, 재로그인 60초 뒤 새 요청은 allow',
-      observed: `로컬 판정기 가상 사건 복합 ${(await decide(suspicious)).decision}, 재로그인 뒤 ${afterStepUp} (심판 판정 아님)` },
-    { attackId: 'zone_rules', expected: '판정기: 내 메모 읽기 allow, 다른 사용자 메모·목록 조회·공지 수정은 deny',
-      observed: `로컬 판정기 가상 요청 내 메모 ${await ask({})}, 다른 사용자 ${await ask({ subjectId: 'learner_other' })}, 목록 ${await ask({ path: '/notes', route: 'GET /notes' })}, 공지 수정 ${await ask({ service: 'notices', method: 'PUT', path: '/notices/n1', route: 'PUT /notices/:id' })} (심판 판정 아님)` },
-    { attackId: 'detect_burst_and_normal', expected: '탐지기: 10분 안 121건은 회수 제안, 120건은 observe',
-      observed: `로컬 탐지기 가상 사건 121건 ${detect(reads(121)).action}, 120건 ${detect(reads(120)).action} (심판 판정 아님)` },
-    { attackId: 'revocation_proposal_device', expected: '확인된 가상 기기 하나의 폭주 조회만 그 기기 대상 회수 제안',
-      observed: `로컬 탐지기 가상 사건 의심 ${proposeRevocation(reads(121, 'a'.repeat(16)))?.action ?? '없음'}, 정상 ${proposeRevocation(reads(30, 'a'.repeat(16))) ? '제안' : '없음'} (심판 판정 아님)` },
-    { attackId: 'policy_baseline_verified', expected: '침해 전 정책 사본의 지문이 맞음', observed: policy },
+  const gets = [
+    ['anonymous_static_note_read', '비로그인 GET /data.json은 404', new URL('/data.json', app), {}, () => ''],
+    ['anonymous_api_note_list', '토큰 없는 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app), {}, (r) => `, 메모 ${rowsOf(r.body)}건`],
+    ['forged_token_note_list', '서명이 맞지 않는 토큰의 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app),
+      { Authorization: FORGED_TOKEN }, (r) => `, 메모 ${rowsOf(r.body)}건`],
+    ['anon_data_api_select', 'anon 키로 원본 자료 API(notes) GET은 권한 없음(401·403)', anonUrl, { apikey: ANON_KEY },
+      (r) => `, 행 ${rowsOf(r.body)}개`],
+    ['restore_route_get', 'GET /api/restore는 복원하지 않고 405', new URL('/api/restore', app), {}, () => ''],
+    ['device_api_anonymous', '토큰 없는 GET /api/devices는 401', new URL('/api/devices', app), {}, () => ''],
+    ['war_room_anonymous', '토큰 없는 GET /api/war-room은 401', new URL('/api/war-room', app), {}, () => ''],
+    ['install_manifest', '설치형 앱 manifest GET 200, 이름·standalone(설치는 기기 승인이 아님)', new URL('/manifest.webmanifest', app), {},
+      (r) => `, 이름 ${typeof r.body?.name === 'string' ? '있음' : '없음'}, display ${r.body?.display ?? '없음'}`],
   ];
+  const results = [];
+  for (const [attackId, expected, url, headers, extra] of gets) {
+    const r = await sendGet(attackId, url, headers);
+    results.push({ attackId, expected, observed: `GET ${path(url)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
+  }
+  const notRun = [
+    ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)'],
+    ['anon_data_api_write', 'anon 키로 원본 notes INSERT·UPDATE·DELETE는 401(쓰기 요청이라 보내지 않음)'],
+    ['restore_device_write_anonymous', '토큰 없는 POST /api/restore·POST /api/devices는 401(쓰기 요청이라 보내지 않음)'],
+    ['login_required_checks', 'B의 A 메모 접근 404, B 메모 복원, 승인 전후 자료, 작전실 요약(로그인 필요, retest/results.md에 따로 실측)'],
+    ['engine_not_connected', '재로그인 차단·회수 집행(ALEPH SDP 엔진 연결 필요)'],
+    ['decider_virtual_rules', '판정기 가상 요청(등록 allow·미등록 deny·복합 이상 step_up·구역 deny): 요청을 보내지 않는 로컬 계산이라 not_run, 결과는 retest/results.md'],
+    ['detect_virtual_burst', '탐지기 가상 사건(121건 회수 제안·120건 observe·기기 하나 대상 제안): 로컬 계산이라 not_run, 결과는 retest/results.md'],
+    ['policy_baseline_digest', '침해 전 정책 사본 지문 확인: 요청 없는 로컬 계산이라 not_run(npm run policy:diff로 확인)'],
+  ].map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
+  return [...results, ...notRun];
 }
