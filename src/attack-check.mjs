@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -22,6 +22,7 @@ export async function runAttackChecks(config) {
   if (config.step === 8) return runStep8Checks(app, config);
   if (config.step === 9) return runStep9Checks(app, config);
   if (config.step === 10) return runStep10Checks(app, config);
+  if (config.step === 11) return runStep11Checks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -327,5 +328,45 @@ async function runStep10Checks(app, config) {
       observed: policy.slice(0, 300) },
     { attackId: 'restore_b_note', expected: 'B가 변조·삭제된 자기 메모를 복원하면 ID·소유자·내용 해시가 사본과 같고, A의 B 메모 복원은 404',
       observed: '미실행(자동 점검): 로그인 토큰을 점검 코드에 넣지 않음. 학생이 B·A 로그인 브라우저에서 직접 확인' },
+  ];
+}
+
+// 11단계: 한도 20개를 지키려 판정기·탐지기·구역 가상 요청 항목을 둘씩 묶고, 설치형 앱·기기 승인 점검을 더합니다.
+// 로그인 없는 /api/devices 요청과 manifest만 실제로 보냅니다. 승인 전후 자료 표시는 로그인이 필요해 미실행입니다.
+async function runStep11Checks(app, config) {
+  let checks = await runStep10Checks(app, config);
+  checks = mergeChecks(checks, ['registered_device_read', 'unregistered_device_read'], 'device_registered_rule',
+    '판정기: 등록 기기 GET은 allow, 미등록 기기는 deny·device_not_registered');
+  checks = mergeChecks(checks, ['detect_burst_read', 'detect_normal_reads'], 'detect_burst_and_normal',
+    '탐지기: 10분 안 121건은 회수 제안, 120건·30건은 observe');
+  checks = mergeChecks(checks, ['zone_notice_write', 'zone_unknown_route'], 'zone_denied_routes',
+    '판정기: 공지 수정·:id 자리 기능 이름·쿼리·표 밖 경로는 deny');
+  const send = async (path, method) => {
+    try {
+      const response = await fetch(new URL(path, app), { method, redirect: 'error', signal: AbortSignal.timeout(10000),
+        headers: { 'Content-Type': 'application/json' }, body: method === 'POST' ? '{}' : undefined });
+      return response;
+    } catch (error) {
+      return { status: `요청 실패(${error.name})`, headers: new Headers(), json: async () => ({}) };
+    }
+  };
+  const getDevices = await send('/api/devices', 'GET');
+  const postDevices = await send('/api/devices', 'POST');
+  const manifest = await send('/manifest.webmanifest', 'GET');
+  let manifestNote = `HTTP ${manifest.status}`;
+  try {
+    const data = await manifest.json();
+    manifestNote += `, 이름 ${typeof data.name === 'string' ? '있음' : '없음'}, display ${data.display ?? '없음'}`;
+  } catch {
+    manifestNote += ', JSON 아님';
+  }
+  return [
+    ...checks,
+    { attackId: 'device_api_anonymous', expected: '토큰 없는 GET·POST /api/devices는 401(승인 요청·조회 불가)',
+      observed: `토큰 없는 요청 GET HTTP ${getDevices.status}, POST HTTP ${postDevices.status}` },
+    { attackId: 'install_manifest', expected: '설치형 앱 manifest가 제공되고, 설치 표시는 기기 승인이 아님',
+      observed: `manifest ${manifestNote}` },
+    { attackId: 'device_approval_gate', expected: '승인 전 기기는 메모 API 403 DEVICE_NOT_APPROVED·자료 미표시, 서버 승인 뒤 기존 화면 정상',
+      observed: '미실행(자동 점검): 로그인 토큰·기기 키를 점검 코드에 넣지 않음. 학생이 브라우저에서 직접 확인' },
   ];
 }
