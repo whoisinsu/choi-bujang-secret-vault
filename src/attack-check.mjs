@@ -384,8 +384,11 @@ async function sendGet(attackId, url, headers = {}) {
   const { randomUUID } = await import('node:crypto');
   const requestId = randomUUID();
   try {
-    const response = await fetch(url, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000),
-      headers: { 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attackId, ...headers } });
+    // 격리 환경의 fetch가 기록·대조하기 쉽도록 문자열 주소와 method·headers만 넘기고, 헤더 이름은 모두 소문자로 씁니다.
+    // attackId 꼬리표는 x-aleph-attack-id와 x-attack-id 두 이름에 같은 값을 넣습니다.
+    const lower = Object.fromEntries(Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]));
+    const response = await fetch(String(url), { method: 'GET',
+      headers: { 'x-request-id': requestId, 'x-aleph-attack-id': attackId, 'x-attack-id': attackId, ...lower } });
     let body = null;
     try {
       body = await response.json();
