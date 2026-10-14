@@ -276,6 +276,61 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 판정기 요청 계약에 출발 주소가 없어 거부 규칙은 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조).
 
+## 운영 안내 (검사 커밋 `6294c3b` 기준)
+
+이 절은 `npm run retest`로 29줄을 실측한 커밋 `6294c3b`를 기준으로 학생 판정기·탐지 규칙·접속 앱·자료실을 설치·실행·중지·복구하는 순서입니다. 비밀값(서버 전용 키, 비밀번호, 토큰, 기기 개인키)은 저장소·README·제출 묶음에 넣지 않고 이름만 적습니다.
+
+### 출처 구분
+
+| 구분 | 무엇 | 파일 |
+|---|---|---|
+| **제공: ALEPH SDP 엔진** | 신원·기기·경로를 먼저 확인하고 판정기에 `aleph.decision.v1` 요청을 보내는 반 운영 엔진, 미등록 기기 차단 릴레이, 탐지기의 회수 제안 집행, 심판 | 이 저장소에 없음. 연결 방식만 계약 문서 `docs/DECIDER_REQUEST.md`·`docs/DETECT_EVENTS.md`(시작 틀 그대로)로 정해져 있음 |
+| **제공: 시작 틀(바꾸지 않음)** | 로그인 토큰 검사, 제출 묶음, 판정기·탐지기 연습, 보너스 실행기, 시험 | `src/verify-login.mjs`, `scripts/bundle.mjs`·`decider-test.mjs`·`detect-test.mjs`·`fixture-7.mjs`·`xdr-run.mjs`, `test/*`, `docs/*`, `package/*`, `xdr/fixtures/*`, `xdr/README.md`, `AGENTS.md`, `api/ai.js`·`api/threat-intel.js`(미구현 501) |
+| **시작 틀을 학생이 고친 파일** | 빌드·배포 정보, 설정, 판정기·탐지기 본문, 자기 점검, 화면 틀 | `scripts/build-public.mjs`, `scripts/deployment-identity.mjs`(3·5·10단계 값 공개), `aleph.config.json`, `src/decider.mjs`, `src/detect.mjs`, `src/attack-check.mjs`, `public/index.html`, `vercel.json`, `package.json`, `.gitignore`, `data.json` |
+| **학생 작성** | 자료 API·로그인 대행·구역·복원·기기 승인·작전실 서버 함수, 접속 앱 화면, 정책 비교·되돌리기, 재시험 표, DB SQL, 보너스 xdr 모듈 | `api/notes/*`, `api/auth/*`, `api/restore.js`, `api/devices.js`, `api/war-room.js`, `src/notes-api.mjs`·`auth-proxy.mjs`·`resources.mjs`·`restore-api.mjs`·`devices-api.mjs`·`war-room-api.mjs`, `public/auth.js`·`app.js`·`sw.js`·`manifest.webmanifest`·`offline.html`·`icon.svg`, `scripts/policy-diff.mjs`·`retest.mjs`, `policy/*`, `retest/*`, `supabase/step*.sql`, `xdr/brute-force/*`, `xdr/web-injection/*` |
+
+판정기(`src/decider.mjs`)와 탐지기(`src/detect.mjs`)는 학생이 쓴 규칙이지만, 실제 접속에서 이 함수를 부르고 결과를 집행하는 것은 ALEPH SDP 엔진입니다. 이 저장소의 자료 API는 판정기를 부르지 않습니다. 로컬 연습(`decider:test`·`fixture:7`·`detect:test`)과 작전실의 판정기·탐지기 결과는 엔진·심판 판정이 아닙니다.
+
+### 설치 (재현 순서)
+
+1. Node.js 22 이상을 준비하고 저장소를 받습니다: `git clone https://github.com/whoisinsu/choi-bujang-secret-vault.git` → 폴더에서 `npm install`(커밋 `610760c`에서 새로 받아 오류 없이 끝나는 것 확인).
+2. Supabase 프로젝트의 SQL Editor에서 아래 순서로 실행합니다. 모두 여러 번 실행해도 되며, 테스트 계정 이메일만 바꿉니다.
+   1. `supabase/step2_vault_notes.sql` — 가상 메모 원본 `vault_notes`. 메모 문장이 들어 있어 Git에서 제외했으므로 학생이 따로 보관한 파일을 씁니다.
+   2. `supabase/step3_notes.sql` → `step4_owners.sql` → `step4_rls.sql` → `step5_revoke.sql` — 메모 테이블, A·B 소유자, RLS, 직접 권한 회수.
+   3. `supabase/step10_backup.sql` — 비공개 메모 사본·감사 기록(덧붙이기만).
+   4. `supabase/step11_devices.sql` — 기기 승인 기록. **배포보다 먼저** 실행합니다(없으면 메모 API가 502).
+3. Vercel 프로젝트의 환경변수 비밀 입력란에 이름만 맞춰 값을 직접 넣습니다: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`(서버 전용), `SUPABASE_PUBLISHABLE_KEY`(로그인 대행용). 값은 코드·Git·채팅에 적지 않습니다.
+4. `main`에 push하면 Vercel이 `npm run build`로 배포하고 `/aleph.json`에 단계·커밋·`allowedRoutes`·`originalApiUrl`·`restoreRoute`를 기록합니다. 배포 주소의 `/aleph.json` `commit`이 push한 커밋과 같은지 봅니다.
+
+### 실행
+
+| 대상 | 명령·동작 | 기대 |
+|---|---|---|
+| 학생 판정기 | `npm run decider:test`, `npm run fixture:7` | 네 줄 `통과`, 정상 allow·복합 이상 step_up(로컬 연습) |
+| 학생 탐지 규칙 | `npm run detect:test` | 여섯 줄 `통과`(로컬 연습) |
+| 보너스 xdr | `npm run xdr:run -- brute-force`, `npm run xdr:run -- web-injection` | 보너스 절의 counts와 같음 |
+| 정책 사본 | `npm run policy:diff` | 사본 `policy@240d023` 검증 통과와 변경 범위 |
+| 접속 앱·자료실 | 배포 주소 접속 → 로그인 → "이 기기"에서 **승인 요청** → SQL Editor에서 그 16자리 기기 ID를 `approved`로(`supabase/step11_devices.sql` 맨 아래 문장, `<…>` 없이) → **승인 결과 확인** | 승인 전 자료 없음, "승인됨" 뒤 기존 메모 화면. 새로고침하면 로그인·승인을 다시 함(세션·기기 키는 메모리에만) |
+| 작전실 | 로그인 뒤 **작전실 불러오기**, 승인 기기에서 **로그인 재시험** | 네 항목 "기록 다시 세기: 일치", 재시험 8줄 일치 |
+| 재시험 표 | 로그인 재시험 JSON을 `retest/browser.json`에 붙인 뒤 `npm run retest` | `retest/results.md` 29줄, 불일치 0 |
+| 제출 묶음 | 커밋 뒤 `bundle-notes.json`(Git 제외)에 설명을 적고 `npm run bundle` | `artifacts/submission.json`(Git 제외) 생성 |
+
+### 중지
+
+- 한 기기의 자료 접근 중지: SQL Editor에서 `update public.device_registrations set status = 'revoked' where device_id = '<16자리>' and owner_id = (select id from auth.users where email = '<테스트 계정>');` → 그 기기의 메모 요청은 바로 403 `DEVICE_NOT_APPROVED`.
+- 로그인 세션 중지: 화면의 **로그아웃**(서버 로그아웃 호출) 또는 탭 닫기·새로고침(세션이 메모리에만 있어 사라짐).
+- 서버의 자료 접근 전체 중지: Supabase 대시보드에서 서버 전용 키를 폐기·교체하면 메모·복원·기기·작전실 API가 DB에 닿지 못합니다. 다시 열 때는 새 키를 Vercel 비밀 입력란에 직접 넣고 재배포합니다.
+- 상주하는 로컬 프로그램은 없습니다. 연습 명령은 실행이 끝나면 스스로 멈춥니다. 배포 자체를 내리는 일은 Vercel 대시보드에서 학생이 직접 정하며 이 저장소는 그 설정을 바꾸지 않습니다.
+
+### 복구
+
+1. 코드: 문제가 된 커밋을 `git revert <커밋>`으로 되돌린 커밋을 만들고 push합니다(`git reset --hard`는 쓰지 않음). 기준은 이 절의 검사 커밋 `6294c3b`입니다.
+2. 정책 파일: `npm run policy:diff`로 차이를 보고 `npm run policy:restore` → 화면의 버전으로 `npm run policy:restore -- --confirm <버전>`. 정책 파일만 되돌리고 `policy/restore-log.jsonl`에 덧붙입니다. 사본 기준은 9단계(`240d023`)라 10~11단계 설정까지 되돌리는지 먼저 확인합니다.
+3. 메모 한 건: B 시험 메모는 B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}`(변조는 내용, 삭제는 재생성, 내용 해시 `019f5e7d…` 대조). A 가상 메모는 `vault_notes`에서 지운 한 건만 원래 id로 다시 넣습니다(10단계 사고 기록의 SQL).
+4. DB 구조: `supabase/step*.sql`을 설치 순서대로 다시 실행합니다. 사본·감사 기록은 덮어쓰지 않습니다.
+5. 감사 기록: `restore_audit`는 트리거로 덧붙이기만 됩니다. 저장소 사본 `policy/restore-audit.jsonl`에도 새 줄만 덧붙입니다.
+6. 복구 뒤 확인: `npm run retest`와 작전실 **로그인 재시험**을 다시 실행해 정상 허용·금지 거부를 실측합니다. 실행하지 않은 줄은 미실행으로 남깁니다.
+
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
 [AGENTS.md](AGENTS.md)를 먼저 읽히고 한 번에 한 제작 단위만 요청하세요. 2단계부터는 자료 보호를 구현할 때 `public/data.json`을 복사하는 1단계 빌드 흐름도 함께 바꿔야 합니다. 3단계 이후의 로그인, 허용 경로, 5단계의 원본 API 주소, 6단계 이후 정책 규칙은 해당 단계 원고와 계약에 맞춰 추가합니다. 비밀번호·토큰·서버 전용 키·실제 학생 기록을 코드, Git, 제출 묶음에 넣지 않습니다.
