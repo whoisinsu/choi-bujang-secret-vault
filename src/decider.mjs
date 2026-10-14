@@ -18,7 +18,7 @@ const respond = (request, decision, reasonCode, ruleId) => ({
 // - source 'none': 현재 실제 경로. 지역·시각·네트워크 정보가 없습니다.
 // - 그 밖의 출처나 형식이 틀린 signals: 'untrusted'. 값이 있어도 쓰지 않습니다.
 // 없거나 믿을 수 없는 값은 null(모름)로 두고 'local'·'usual' 같은 정상값으로 채우지 않습니다.
-// 브라우저 헤더나 계약에 없는 request.geo·request.headers 등은 읽지 않습니다.
+// 브라우저 헤더나 계약(docs/DECIDER_REQUEST.md)에 없는 이름은 읽지 않습니다.
 const SIGNAL_KEYS = 'hour,network,region,source';
 const EVENT_KEYS = 'ageSeconds,count,kind';
 const LABEL = /^[a-z][a-z0-9_-]{0,31}$/u;
@@ -125,7 +125,9 @@ function exactRoute(request) {
   return matches && request.service === ROUTES[route].service ? ROUTES[route] : null;
 }
 
-export async function decide(request) {
+export async function decide(input) {
+  // 요청이 객체가 아니면(null·undefined·문자열 등) 빈 요청으로 보고 거부합니다. 예외 없이 형식이 맞는 응답을 돌려줍니다.
+  const request = input !== null && typeof input === 'object' ? input : {};
   // 6단계 device_registered: 엔진이 전달한 deviceRegistered가 정확히 true일 때만 통과합니다.
   // false, 값 없음, 문자열 'true' 같은 다른 값은 모두 미등록으로 거부합니다.
   if (request.deviceRegistered !== true) {
