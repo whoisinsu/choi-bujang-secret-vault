@@ -23,7 +23,7 @@ export class HttpError extends Error {
 
 export const isUuid = (value) => typeof value === 'string' && UUID.test(value);
 
-function serverSettings() {
+export function serverSettings() {
   const { SUPABASE_URL: url, SUPABASE_SECRET_KEY: key } = process.env;
   let base;
   try {
@@ -115,6 +115,33 @@ export async function notesRequest(key, base, { method = 'GET', query, payload, 
 
 export const publicNote = ({ id, title, body }) => ({ id, title, body });
 
+// 11단계: 기기 승인 확인. 요청 헤더 X-Device-Id의 기기가 이 사용자 소유이고 서버 기록(device_registrations)에서
+// status = approved일 때만 통과합니다. 승인 여부는 브라우저가 아니라 서버 기록만 보고 정합니다.
+// 기기 ID는 비밀값이 아니므로, 요청 서명(다음 제작)으로 기기 키를 가졌는지 함께 확인해야 합니다.
+export const DEVICE_ID = /^[0-9a-f]{16}$/u;
+export async function requireApprovedDevice(request, userId, base, key) {
+  const deviceId = request.headers?.['x-device-id'];
+  if (typeof deviceId !== 'string' || !DEVICE_ID.test(deviceId)) throw new HttpError(403, 'DEVICE_NOT_APPROVED');
+  const url = new URL('/rest/v1/device_registrations', base);
+  url.search = new URLSearchParams({ select: 'device_id', device_id: `eq.${deviceId}`, owner_id: `eq.${userId}`,
+    status: 'eq.approved' }).toString();
+  let rows;
+  try {
+    const upstream = await fetch(url, { headers: { apikey: key, Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+    if (!upstream.ok) {
+      console.error(`notes: 기기 승인 조회 응답 ${upstream.status}`);
+      throw new HttpError(502, 'DEVICE_CHECK_UNAVAILABLE');
+    }
+    rows = await upstream.json();
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    console.error(`notes: 기기 승인 조회 실패 (${error.name})`);
+    throw new HttpError(502, 'DEVICE_CHECK_UNAVAILABLE');
+  }
+  if (!Array.isArray(rows) || rows.length !== 1) throw new HttpError(403, 'DEVICE_NOT_APPROVED');
+  return deviceId;
+}
+
 // 공통 응답 처리: 캐시 금지, 허용 메서드 검사, 서버 설정과 로그인 확인, 오류를 JSON으로 바꿉니다.
 // 8단계 API 구역 확인: 판정기와 따로, 이 API가 다시 대조합니다.
 // - 메모 API는 my_notes 구역의 다섯 경로만 받습니다. 다른 구역(강사 공지 등)은 403 ZONE_FORBIDDEN입니다.
@@ -179,6 +206,8 @@ export function notesHandler(handlers) {
     try {
       const { base, key } = serverSettings();
       const userId = await requireUser(request, key);
+      // 11단계: 로그인 다음에 이 사용자의 승인된 기기인지 서버 기록으로 확인합니다.
+      await requireApprovedDevice(request, userId, base, key);
       // 8단계: 요청 동작·경로로 구역과 자원 ID를 붙입니다(src/resources.mjs).
       resource = resourceFor(request.method, requestPath(request));
       checkZone(request, resource);

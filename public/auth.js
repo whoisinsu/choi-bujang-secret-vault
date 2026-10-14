@@ -27,6 +27,47 @@ const addTitle = document.querySelector('#note-title');
 const addBody = document.querySelector('#note-body');
 const addSubmit = document.querySelector('#note-submit');
 const noteMessage = document.querySelector('#note-message');
+const deviceState = document.querySelector('#device-state');
+const deviceIdText = document.querySelector('#device-id');
+const deviceActions = document.querySelector('#device-actions');
+const deviceRequest = document.querySelector('#device-request');
+const deviceCheck = document.querySelector('#device-check');
+const deviceMessage = document.querySelector('#device-message');
+
+// 11단계 기기 승인: 기기 키는 이 화면의 메모리에만 있습니다(개인키는 내보낼 수 없게 만들고, localStorage·
+// IndexedDB 같은 브라우저 저장소에 넣지 않습니다). 새로고침하면 새 키가 되므로 승인을 다시 받아야 합니다.
+// 승인 여부는 서버(/api/devices)가 돌려준 기록만 따르고, 승인 요청 버튼을 눌렀다고 승인된 것으로 보지 않습니다.
+const device = { keyPair: null, deviceId: null, status: 'none' };
+const DEVICE_TEXT = {
+  none: '승인 요청 전 — 이 기기는 아직 서버에 등록을 요청하지 않았습니다.',
+  pending: '승인 대기 — 서버가 아직 이 기기를 승인하지 않았습니다. 승인 전에는 자료를 보여 주지 않습니다.',
+  approved: '승인됨 — 서버가 이 기기를 등록 기기로 확인했습니다.',
+  revoked: '승인 취소됨 — 서버가 이 기기의 승인을 거뒀습니다. 자료를 보여 주지 않습니다.',
+};
+
+function showDevice(text, kind) {
+  deviceMessage.textContent = text;
+  deviceMessage.dataset.kind = kind;
+  deviceMessage.hidden = !text;
+}
+
+function renderDevice() {
+  const loggedIn = Boolean(currentSession?.access_token);
+  deviceActions.hidden = !loggedIn;
+  deviceState.textContent = loggedIn ? DEVICE_TEXT[device.status] ?? DEVICE_TEXT.none
+    : '로그인한 뒤 서버가 이 기기의 승인 여부를 확인합니다.';
+  deviceState.dataset.state = device.status === 'approved' ? 'approved' : 'unverified';
+  deviceIdText.textContent = device.deviceId ?? '로그인하면 이 화면에서만 쓰는 기기 키를 만듭니다';
+  deviceCheck.disabled = !device.deviceId;
+  notesPanel.hidden = !(loggedIn && device.status === 'approved');
+}
+
+function resetDevice() {
+  device.keyPair = null;
+  device.deviceId = null;
+  device.status = 'none';
+  showDevice('', 'info');
+}
 
 const REASONS = {
   invalid_credentials: '이메일 또는 비밀번호가 맞지 않습니다.',
@@ -124,6 +165,7 @@ async function freshSession(force = false) {
 async function api(path, { method = 'GET', payload } = {}) {
   const send = async (session) => {
     const headers = { Authorization: `Bearer ${session.access_token}` };
+    if (device.deviceId) headers['X-Device-Id'] = device.deviceId;
     if (payload) headers['Content-Type'] = 'application/json';
     return fetch(path, { method, cache: 'no-store', headers, body: payload ? JSON.stringify(payload) : undefined });
   };
@@ -135,6 +177,11 @@ async function api(path, { method = 'GET', payload } = {}) {
     if (session?.access_token) response = await send(session);
   }
   if (response.status === 401) throw new Error('로그인을 확인하지 못했습니다. 다시 로그인해 주세요.');
+  if (response.status === 403 && (await response.clone().json().catch(() => ({}))).error === 'DEVICE_NOT_APPROVED') {
+    device.status = device.deviceId ? 'pending' : 'none';
+    renderDevice();
+    throw new Error('서버가 이 기기를 승인하지 않아 자료를 보여 주지 않습니다.');
+  }
   if (response.status === 404) throw new Error('메모를 찾을 수 없습니다. 이미 지워졌을 수 있습니다.');
   if (response.status === 400) throw new Error('제목(200자 이내)과 내용(5000자 이내)을 확인하세요.');
   if (!response.ok) throw new Error('서버에서 요청을 처리하지 못했습니다.');
@@ -223,6 +270,10 @@ async function loadNotes() {
     showNotesMessage('로그인하면 자료가 보입니다.');
     return;
   }
+  if (device.status !== 'approved') {
+    showNotesMessage('기기 승인 전에는 자료를 보여 주지 않습니다. 위 "이 기기"에서 승인을 요청하고 결과를 확인하세요.');
+    return;
+  }
   showNotesMessage('가상 자료를 불러오는 중입니다.');
   try {
     const notes = await api('/api/notes');
@@ -257,17 +308,67 @@ function render(session) {
   who.textContent = user?.email ?? '';
   status.textContent = user ? '로그인됨' : '로그인하지 않음';
   status.dataset.state = user ? 'in' : 'out';
-  notesPanel.hidden = !user;
   if (!user) showNoteMessage('', 'info');
+  renderDevice();
 }
 
 let shownToken = Symbol('not-loaded');
 function update(session) {
-  render(session);
+  const sameUser = currentSession?.user?.email && currentSession.user.email === session?.user?.email;
   currentSession = session ?? null;
+  if (!sameUser) resetDevice();
+  render(session);
   if (session?.access_token === shownToken) return;
   shownToken = session?.access_token;
   loadNotes();
+}
+
+// 서버에 기기 승인을 요청하거나(공개키만 보냄) 서버 기록의 승인 결과를 받아 옵니다.
+async function deviceCall(method) {
+  const send = async (session) => {
+    const headers = { Authorization: `Bearer ${session.access_token}` };
+    let body;
+    if (method === 'POST') {
+      device.keyPair ??= await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify']);
+      const { kty, crv, x, y } = await crypto.subtle.exportKey('jwk', device.keyPair.publicKey);
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify({ publicKey: { kty, crv, x, y } });
+    } else {
+      headers['X-Device-Id'] = device.deviceId;
+    }
+    return fetch('/api/devices', { method, cache: 'no-store', headers, body });
+  };
+  let session = await freshSession();
+  if (!session?.access_token) throw new Error('로그인한 뒤에 할 수 있습니다.');
+  let response = await send(session);
+  if (response.status === 401) {
+    session = await freshSession(true);
+    if (session?.access_token) response = await send(session);
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(`서버가 기기 요청을 처리하지 못했습니다. (${data.error ?? response.status})`);
+  if (typeof data.deviceId !== 'string' || !['pending', 'approved', 'revoked'].includes(data.status)) {
+    throw new Error('서버 응답 형식이 맞지 않습니다.');
+  }
+  device.deviceId = data.deviceId;
+  device.status = data.status;
+}
+
+for (const [button, method, done] of [[deviceRequest, 'POST', '승인을 요청했습니다. 승인은 서버 쪽에서 따로 합니다.'],
+  [deviceCheck, 'GET', '서버의 승인 기록을 확인했습니다.']]) {
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      await deviceCall(method);
+      showDevice(done, 'ok');
+    } catch (error) {
+      showDevice(error.message, 'error');
+    } finally {
+      button.disabled = false;
+      renderDevice();
+      loadNotes();
+    }
+  });
 }
 
 update(loadStoredSession());

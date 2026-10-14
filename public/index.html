@@ -58,7 +58,13 @@
       <dl>
         <dt>설치</dt><dd id="install-state">확인하는 중</dd>
         <dt>기기 승인</dt><dd id="device-state" role="status">확인하는 중</dd>
+        <dt>기기 ID</dt><dd id="device-id">로그인하면 이 화면에서만 쓰는 기기 키를 만듭니다</dd>
       </dl>
+      <div id="device-actions" class="note-actions" hidden>
+        <button id="device-request" type="button">승인 요청</button>
+        <button id="device-check" type="button">승인 결과 확인</button>
+      </div>
+      <p id="device-message" class="auth-message" role="status" hidden></p>
     </section>
     <section class="auth" aria-labelledby="auth-title">
       <h2 id="auth-title">로그인 <span id="auth-status" class="auth-status" data-state="out">확인하는 중</span></h2>
