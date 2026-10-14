@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BYTE BACK | 점령된 자료실</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#101a28">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
@@ -38,6 +41,10 @@
     .note-actions button.danger { border-color: #d07384; color: #ffb3c0; }
     .note-actions button:disabled, .note-form button:disabled { opacity: .5; cursor: default; }
     li span { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .device dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+    .device dt { color: #8ad8df; font-weight: 700; }
+    .device dd { margin: 0; overflow-wrap: anywhere; }
+    .device [data-state="unverified"] { color: #ffd59a; }
   </style>
 </head>
 <body>
@@ -46,6 +53,13 @@
     <h1>점령된 자료실</h1>
     <p>자료는 이제 정적 파일이 아니라 서버 API로 읽습니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
     <div class="notice">서버가 로그인 토큰을 확인한 뒤에만 자료를 보여 줍니다. 다른 계정의 자료를 나누는 일은 다음 제작 단계에서 막아 주세요.</div>
+    <section class="auth device" aria-labelledby="device-title">
+      <h2 id="device-title">이 기기</h2>
+      <dl>
+        <dt>설치</dt><dd id="install-state">확인하는 중</dd>
+        <dt>기기 승인</dt><dd id="device-state" role="status">확인하는 중</dd>
+      </dl>
+    </section>
     <section class="auth" aria-labelledby="auth-title">
       <h2 id="auth-title">로그인 <span id="auth-status" class="auth-status" data-state="out">확인하는 중</span></h2>
       <form id="login-form" hidden>
@@ -71,5 +85,6 @@
     <ul id="notes" aria-live="polite"><li>로그인 상태를 확인하는 중입니다.</li></ul>
   </main>
   <script type="module" src="/auth.js"></script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>
