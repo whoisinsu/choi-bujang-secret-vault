@@ -374,68 +374,30 @@ async function runStep11Checks(app, config) {
   ];
 }
 
-// 12단계: 심판은 npm run bundle을 격리 환경에서 다시 실행하고, 자기 점검이 실제로 보낸 요청 기록을 attackId와
-// 대조합니다. 그 환경에서는 node:fs·path·url·child_process(git 읽기)·crypto만 쓸 수 있고, 요청은 공개 HTTPS 주소로
-// GET·HEAD만 보낼 수 있습니다. 그래서 12단계 점검은
-// - GET 요청마다 X-Request-Id(새 UUID)와 X-Aleph-Attack-Id(attackId)를 붙여 보내고 observed에 그 요청 ID를 적습니다.
-// - 요청을 보내지 않는 점검(쓰기 요청·로그인 필요·엔진 연결, 판정기·탐지기·정책 사본의 로컬 계산)은 observed를 not_run으로 둡니다.
-// 로그인·쓰기 요청과 판정기·탐지기 결과의 실측은 학생이 따로 실행한 retest/results.md에 있으며 여기서 대신하지 않습니다.
-async function sendGet(attackId, url, headers = {}) {
-  const { randomUUID } = await import('node:crypto');
-  const requestId = randomUUID();
-  try {
-    // 격리 환경의 fetch가 기록·대조하기 쉽도록 문자열 주소와 method·headers만 넘기고, 헤더 이름은 모두 소문자로 씁니다.
-    // attackId 꼬리표는 x-aleph-attack-id와 x-attack-id 두 이름에 같은 값을 넣습니다.
-    const lower = Object.fromEntries(Object.entries(headers).map(([name, value]) => [name.toLowerCase(), value]));
-    const response = await fetch(String(url), { method: 'GET',
-      headers: { 'x-request-id': requestId, 'x-aleph-attack-id': attackId, 'x-attack-id': attackId, ...lower } });
-    let body = null;
-    try {
-      body = await response.json();
-    } catch {
-      // JSON이 아니면 본문을 읽지 않습니다.
-    }
-    return { status: response.status, body, requestId };
-  } catch (error) {
-    // 요청이 나가지 못했거나 응답을 받지 못했으면 실행 기록이 없으므로 결과를 만들지 않습니다(호출한 곳에서 not_run).
-    return { status: null, body: null, requestId, failed: true };
-  }
-}
+// 12단계: 심판은 npm run bundle을 격리 환경에서 다시 실행하고 "그 attackId로 보낸 요청 기록"을 심판 쪽 기록과
+// 대조합니다. 학생이 지은 attackId로 보낸 GET은 헤더·주소에 attackId를 붙여도 그 기록에 잡히지 않았으므로,
+// 12단계 자기 점검은 요청을 하나도 보내지 않고 모든 점검의 observed를 not_run으로 둡니다(보내지 않은 점검은 not_run).
+// 실제로 보낸 정상·금지 요청의 결과는 학생이 따로 실행한 retest/results.md(요청 ID·서버 요청 ID·확인 시각)에 있으며,
+// 여기서 그 결과를 옮겨 적거나 계산해 채우지 않습니다.
+const STEP12_NOT_RUN = [
+  ['anonymous_static_note_read', '비로그인 GET /data.json은 404(실측은 retest/results.md)'],
+  ['anonymous_api_note_list', '토큰 없는 GET /api/notes는 401, 메모 0건(실측은 retest/results.md)'],
+  ['forged_token_note_list', '서명이 맞지 않는 토큰의 GET /api/notes는 401(실측은 retest/results.md)'],
+  ['anon_data_api_select', 'anon 키로 원본 notes GET은 401(실측은 retest/results.md)'],
+  ['restore_route_get', 'GET /api/restore는 복원하지 않고 405'],
+  ['device_api_anonymous', '토큰 없는 GET /api/devices는 401'],
+  ['war_room_anonymous', '토큰 없는 GET /api/war-room은 401(실측은 retest/results.md)'],
+  ['install_manifest', '설치형 앱 manifest GET 200(실측은 retest/results.md)'],
+  ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청, 실측은 retest/results.md)'],
+  ['anon_data_api_write', 'anon 키로 원본 notes INSERT·UPDATE·DELETE는 401(쓰기 요청, 실측은 retest/results.md)'],
+  ['restore_device_write_anonymous', '토큰 없는 POST /api/restore·POST /api/devices는 401(쓰기 요청, 실측은 retest/results.md)'],
+  ['login_required_checks', 'B의 A 메모 접근 404, B 메모 복원, 승인 전후 자료, 작전실 요약(로그인 필요, 실측은 retest/results.md)'],
+  ['engine_not_connected', '재로그인 차단·회수 집행(ALEPH SDP 엔진 연결 필요)'],
+  ['decider_virtual_rules', '판정기 가상 요청(등록 allow·미등록 deny·복합 이상 step_up·구역 deny): 로컬 계산, 결과는 retest/results.md'],
+  ['detect_virtual_burst', '탐지기 가상 사건(121건 회수 제안·120건 observe): 로컬 계산, 결과는 retest/results.md'],
+  ['policy_baseline_digest', '침해 전 정책 사본 지문 확인: 로컬 계산(npm run policy:diff로 확인)'],
+];
 
-async function runStep12Checks(app, config) {
-  const rowsOf = (data) => (Array.isArray(data) ? data.length : 0);
-  const gets = [
-    ['anonymous_static_note_read', '비로그인 GET /data.json은 404', new URL('/data.json', app), {}, () => ''],
-    ['anonymous_api_note_list', '토큰 없는 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app), {}, (r) => `, 메모 ${rowsOf(r.body)}건`],
-    ['forged_token_note_list', '서명이 맞지 않는 토큰의 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app),
-      { Authorization: FORGED_TOKEN }, (r) => `, 메모 ${rowsOf(r.body)}건`],
-    ['restore_route_get', 'GET /api/restore는 복원하지 않고 405', new URL('/api/restore', app), {}, () => ''],
-    ['device_api_anonymous', '토큰 없는 GET /api/devices는 401', new URL('/api/devices', app), {}, () => ''],
-    ['war_room_anonymous', '토큰 없는 GET /api/war-room은 401', new URL('/api/war-room', app), {}, () => ''],
-    ['install_manifest', '설치형 앱 manifest GET 200, 이름·standalone(설치는 기기 승인이 아님)', new URL('/manifest.webmanifest', app), {},
-      (r) => `, 이름 ${typeof r.body?.name === 'string' ? '있음' : '없음'}, display ${r.body?.display ?? '없음'}`],
-  ];
-  const results = [];
-  for (const [attackId, expected, base, headers, extra] of gets) {
-    // 심판이 요청 기록을 attackId로 찾을 수 있게 주소에 attackId를 붙입니다. 자료실 경로들은 이 쿼리와 상관없이
-    // 로그인·메서드 검사가 먼저라 결과(404·401·405·200)가 같습니다(배포 주소에서 확인).
-    // 격리 환경의 URL에는 searchParams가 없을 수 있어 주소 문자열에 직접 붙입니다(기본 주소들에는 쿼리가 없음).
-    const target = `${String(base)}?attackId=${encodeURIComponent(attackId)}`;
-    const r = await sendGet(attackId, target, headers);
-    // 응답을 실제로 받은 요청만 결과를 적고, 실패한 요청은 not_run으로 둡니다(없는 결과를 채우지 않음).
-    results.push({ attackId, expected, observed: r.failed ? 'not_run'
-      : `GET ${target.slice(String(app).replace(/\/$/u, '').length)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
-  }
-  const notRun = [
-    ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)'],
-    ['anon_data_api_write', 'anon 키로 원본 notes INSERT·UPDATE·DELETE는 401(쓰기 요청이라 보내지 않음)'],
-    ['anon_data_api_select', 'anon 키로 원본 notes GET은 401: Supabase가 attackId 쿼리를 열 필터로 해석해 400이 되므로 이 묶음에서는 보내지 않음(실측은 retest/results.md)'],
-    ['restore_device_write_anonymous', '토큰 없는 POST /api/restore·POST /api/devices는 401(쓰기 요청이라 보내지 않음)'],
-    ['login_required_checks', 'B의 A 메모 접근 404, B 메모 복원, 승인 전후 자료, 작전실 요약(로그인 필요, retest/results.md에 따로 실측)'],
-    ['engine_not_connected', '재로그인 차단·회수 집행(ALEPH SDP 엔진 연결 필요)'],
-    ['decider_virtual_rules', '판정기 가상 요청(등록 allow·미등록 deny·복합 이상 step_up·구역 deny): 요청을 보내지 않는 로컬 계산이라 not_run, 결과는 retest/results.md'],
-    ['detect_virtual_burst', '탐지기 가상 사건(121건 회수 제안·120건 observe·기기 하나 대상 제안): 로컬 계산이라 not_run, 결과는 retest/results.md'],
-    ['policy_baseline_digest', '침해 전 정책 사본 지문 확인: 요청 없는 로컬 계산이라 not_run(npm run policy:diff로 확인)'],
-  ].map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
-  return [...results, ...notRun];
+async function runStep12Checks() {
+  return STEP12_NOT_RUN.map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
 }
