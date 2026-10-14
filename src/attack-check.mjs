@@ -397,7 +397,8 @@ async function sendGet(attackId, url, headers = {}) {
     }
     return { status: response.status, body, requestId };
   } catch (error) {
-    return { status: `요청 실패(${error.name})`, body: null, requestId };
+    // 요청이 나가지 못했거나 응답을 받지 못했으면 실행 기록이 없으므로 결과를 만들지 않습니다(호출한 곳에서 not_run).
+    return { status: null, body: null, requestId, failed: true };
   }
 }
 
@@ -422,7 +423,9 @@ async function runStep12Checks(app, config) {
   const results = [];
   for (const [attackId, expected, url, headers, extra] of gets) {
     const r = await sendGet(attackId, url, headers);
-    results.push({ attackId, expected, observed: `GET ${path(url)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
+    // 응답을 실제로 받은 요청만 결과를 적고, 실패한 요청은 not_run으로 둡니다(없는 결과를 채우지 않음).
+    results.push({ attackId, expected, observed: r.failed ? 'not_run'
+      : `GET ${path(url)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
   }
   const notRun = [
     ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)'],
