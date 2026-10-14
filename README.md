@@ -189,7 +189,7 @@ git grep -cE "$Q" 4f07b71
 
 ### 복구 뒤 1~9단계 다시 확인하는 순서
 
-복구한 직후 아래 순서대로 다시 실행합니다. 결과 칸은 실제로 실행한 결과만 적고, 실행하지 않은 것은 **미실행**으로 둡니다. 비밀번호·토큰은 기록하지 않습니다. `U=https://choi-bujang-secret-vault-blue-tau.vercel.app`
+복구한 직후 아래 순서대로 다시 실행합니다. 결과 칸의 "실행"은 `npm run bundle`의 자기 점검이나 명령으로 실제로 보낸 결과만 뜻합니다. 로그인이 필요해 자기 점검(`src/attack-check.mjs`)이 실행하지 않은 항목은 **미실행(자동 점검)**으로 두고, 학생이 브라우저에서 직접 본 결과는 "학생 브라우저 직접 확인"으로 따로 적습니다. 비밀번호·토큰은 기록하지 않습니다. `U=https://choi-bujang-secret-vault-blue-tau.vercel.app`
 
 **가. 복구가 됐는지 (자료와 정책)**
 
@@ -197,9 +197,9 @@ git grep -cE "$Q" 4f07b71
 |---|---|---|---|
 | 가-1 | `npm run policy:diff` | "사본 검증 통과", 변경 범위가 있으면 `npm run policy:restore`로 확인 → `-- --confirm <버전>`, 다시 `policy:diff`가 "변경 범위: 없음" | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — 사본 `policy@240d023` 검증 통과, 변경 범위 `aleph.config.json` 한 파일(+2 -2줄, 10단계 `step`·`restoreRoute`). 정책 파일을 되돌릴 대상은 아님 |
 | 가-2 | `policy/restore-log.jsonl`을 연다 (정책을 되돌린 경우) | 이전 줄은 그대로, 이번 복원 한 줄이 끝에 추가 | 미실행(정책 파일을 되돌리지 않아 `policy/restore-log.jsonl`이 생기지 않음) |
-| 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 변조 뒤: 실행(커밋 `4a0b23f` 배포, 학생 B 로그인) — `200 restored: content`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 2. 삭제 뒤: 실행(커밋 `fb05ec5` 배포, 학생 B 로그인) — 화면에서 삭제한 뒤 `200 restored: recreated`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 8 |
-| 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 실행(학생 A 로그인) — 감사 기록 4번 `backup_not_found`로 거부 확인. A 메모 그대로인지는 기록하지 않음 |
-| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 실행 — 1·2 `requested`→`restored_content`(B, 16:49 KST), 3·4 `requested`→`backup_not_found`(A, 16:50), 5·6 `requested`→`backup_not_found`(B가 아닌 소유자, 17:22:55), 7·8 `requested`→`recreated`(B, 17:31). 이전 줄은 그대로 남음 |
+| 가-3 | B 로그인 Console에서 `POST /api/restore` `{"id":"b0000000-0000-4000-8000-000000000001"}` | 변조 뒤 `200 restored: content`, 삭제 뒤 `200 restored: recreated`, `contentSha256`이 `019f5e7d…`(사본과 같음), 새로고침하면 "B 시험 메모" | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: 변조 뒤(커밋 `4a0b23f` 배포, 학생 B 로그인) — `200 restored: content`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 2. 삭제 뒤(커밋 `fb05ec5` 배포, 학생 B 로그인) — 화면에서 삭제한 뒤 `200 restored: recreated`, `contentSha256` `019f5e7d…be86`(사본과 같음), `auditSeq` 8 |
+| 가-4 | 같은 요청을 A 로그인으로 | `404 BACKUP_NOT_FOUND`, A 메모 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (학생 A 로그인) — 감사 기록 4번 `backup_not_found`로 거부 확인. A 메모 그대로인지는 기록하지 않음 |
+| 가-5 | Supabase SQL Editor: `select result, before_sha256 is null as was_deleted, after_sha256 from public.restore_audit order by seq;` | 복원 시도마다 한 줄씩 늘고, 이전 줄은 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: — 1·2 `requested`→`restored_content`(B, 16:49 KST), 3·4 `requested`→`backup_not_found`(A, 16:50), 5·6 `requested`→`backup_not_found`(B가 아닌 소유자, 17:22:55), 7·8 `requested`→`recreated`(B, 17:31). 이전 줄은 그대로 남음 |
 
 **나. 이전에 막던 요청이 다시 거부되는지 (금지 요청)**
 
@@ -209,8 +209,8 @@ git grep -cE "$Q" 4f07b71
 | 나-2 | 2 | 2단계 절의 "가상 메모 문장 검색 절차" 1)~3) | 정적 파일·GitHub 최신 파일·비로그인 API 모두 0건 | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — 정적 파일 세 곳 0건, GitHub `origin/main` 0개 파일, 비로그인 `/api/notes` 0건 |
 | 나-3 | 3 | `curl -s -o /dev/null -w '%{http_code}' $U/api/notes` 와 `-H 'Authorization: Bearer aaaa.bbbb.cccc'` | 둘 다 401 | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — 토큰 없음 401, 위조 토큰 401 |
 | 나-4 | 3 | 토큰 없이 `POST /api/notes`, `PUT`·`DELETE /api/notes/<id>` | 모두 401 | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — POST 401, PUT 401, DELETE 401 |
-| 나-5 | 4·8 | B 로그인 Console에서 A 메모 id로 `GET`·`PUT`·`DELETE /api/notes/:id` (8단계 확인 순서의 코드) | 404·404·404, A 메모 그대로 | 실행(2026-10-13 KST, 커밋 `fb05ec5` 배포, 학생 B 로그인 Console, A 메모 `4db215ce…`가 있는 상태) — GET 404 `NOTE_NOT_FOUND`, PUT 404 `NOTE_NOT_FOUND`, DELETE 404 `NOTE_NOT_FOUND`. 앞서 17:25에 한 같은 시험은 대상 메모가 이미 지워진 뒤라 소유자 검사 증거로 쓰지 않음(아래 사고 기록) |
-| 나-6 | 8 | 같은 Console에서 본문에 `role: 'instructor'`를 넣은 `PUT`, `GET /api/notes?owner_id=x` | 403 `ROLE_FIELD_REJECTED`, 404 `ROUTE_NOT_ALLOWED` | 실행(2026-10-13 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포, 학생 B 로그인 Console) — role 포함 PUT 403 `ROLE_FIELD_REJECTED`, `GET /api/notes?owner_id=x` 404(오류 코드 줄은 화면에서 잘려 기록하지 않음) |
+| 나-5 | 4·8 | B 로그인 Console에서 A 메모 id로 `GET`·`PUT`·`DELETE /api/notes/:id` (8단계 확인 순서의 코드) | 404·404·404, A 메모 그대로 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (2026-10-13 KST, 커밋 `fb05ec5` 배포, 학생 B 로그인 Console, A 메모 `4db215ce…`가 있는 상태) — GET 404 `NOTE_NOT_FOUND`, PUT 404 `NOTE_NOT_FOUND`, DELETE 404 `NOTE_NOT_FOUND`. 앞서 17:25에 한 같은 시험은 대상 메모가 이미 지워진 뒤라 소유자 검사 증거로 쓰지 않음(아래 사고 기록) |
+| 나-6 | 8 | 같은 Console에서 본문에 `role: 'instructor'`를 넣은 `PUT`, `GET /api/notes?owner_id=x` | 403 `ROLE_FIELD_REJECTED`, 404 `ROUTE_NOT_ALLOWED` | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (2026-10-13 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포, 학생 B 로그인 Console) — role 포함 PUT 403 `ROLE_FIELD_REJECTED`, `GET /api/notes?owner_id=x` 404(오류 코드 줄은 화면에서 잘려 기록하지 않음) |
 | 나-7 | 5 | 공개 anon 키로 `originalApiUrl`에 SELECT·INSERT·UPDATE·DELETE | 모두 401(권한 없음) | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — SELECT·INSERT·UPDATE·DELETE 모두 401 |
 | 나-8 | 6~8 | `npm run decider:test`, `npm run fixture:7` | 네 줄 `통과`(미등록 기기 deny, 복합 이상 step_up), 정상 allow·복합 step_up | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — `decider:test` 네 줄 통과, `fixture:7` 정상 allow·복합 step_up(로컬 가상 요청, 심판 판정 아님) |
 | 나-9 | 9 | `npm run detect:test` | 여섯 줄 `통과`(121건·200건 회수 제안, 나머지 observe) | 실행(2026-10-13 17:19 KST, B 복원 16:49 뒤, 커밋 `fb05ec5` 배포) — `detect:test` 여섯 줄 통과(로컬 가상 사건, 심판 판정 아님) |
@@ -220,8 +220,8 @@ git grep -cE "$Q" 4f07b71
 
 | 순서 | 실행 | 기대 | 복구 뒤 결과 |
 |---|---|---|---|
-| 다-1 | A 로그인 화면: 목록 → 추가 → 수정 → 삭제 | 네 건 보임, "메모를 추가/수정/삭제했습니다." | 실행(학생 A 로그인) — 메모 네 건 확인 뒤 `10단계 확인` 추가·수정·삭제, 학생이 1단계 완료로 보고 |
-| 다-2 | B 로그인 화면: 목록 | 복원된 "B 시험 메모"만 보이고 A 메모는 안 보임 | 실행(학생 B 로그인) — "B 시험 메모"만 보이고 A 메모는 안 보임. 이어서 A로 다시 로그인해 "훈련 행정 자료"가 그대로 남아 있는 것도 확인 |
+| 다-1 | A 로그인 화면: 목록 → 추가 → 수정 → 삭제 | 네 건 보임, "메모를 추가/수정/삭제했습니다." | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (학생 A 로그인) — 메모 네 건 확인 뒤 `10단계 확인` 추가·수정·삭제, 학생이 1단계 완료로 보고 |
+| 다-2 | B 로그인 화면: 목록 | 복원된 "B 시험 메모"만 보이고 A 메모는 안 보임 | 미실행(자동 점검, 로그인 필요) · 학생 브라우저 직접 확인: (학생 B 로그인) — "B 시험 메모"만 보이고 A 메모는 안 보임. 이어서 A로 다시 로그인해 "훈련 행정 자료"가 그대로 남아 있는 것도 확인 |
 
 - 재시험 중 사고 기록: 17:22 KST에 B용 공격 시험 코드를 **A 로그인 상태**에서 실행해 A가 자기 메모 `4db215ce-f4bd-4cb7-9dd4-268eba2682ef`("훈련 행정 자료")를 읽고(200) "침입"으로 고친 뒤(200) 지웠습니다(204, Vercel 로그 확인). 본인 메모에 대한 정상 동작이며 role 포함 PUT 403·쿼리 404는 그때도 막혔습니다. 침해 전 원본 `vault_notes`에서 그 한 건만 원래 id와 A 소유로 SQL Editor에서 다시 넣었고(같은 id·제목이 있으면 넣지 않음), 다른 메모와 감사 기록은 건드리지 않았습니다.
 - 판정기·탐지기 연습(나-8~10)은 로컬 가상 요청이며 심판 판정이 아닙니다. 실제 미등록 기기 접속·재로그인 차단·회수 집행은 이 저장소에 연결돼 있지 않아 이 순서에서도 미실행입니다.
