@@ -1,0 +1,15 @@
+{
+  "schema": "aleph.retest.browser.v1",
+  "account": "test@example.com",
+  "device": "0ecc…",
+  "rows": [
+    { "stage": "4", "kind": "정상", "label": "A 내 메모 목록", "expected": "200, 내 메모 1건 이상", "actual": "200", "match": true, "requestId": "0c34b8c9-1df5-4822-b626-af3e3f2fa220", "serverId": "icn1::iad1::7w2q2-1791959442794-c504b5652414", "at": "2026-10-14T06:30:37.884Z" },
+    { "stage": "4", "kind": "정상", "label": "A 내 메모 한 건 읽기", "expected": "200", "actual": "200", "match": true, "requestId": "404613d7-9b8c-48a3-90f9-da122697aa3b", "serverId": "icn1::iad1::kvt2b-1791959444441-a119e2a8fb99", "at": "2026-10-14T06:30:39.528Z" },
+    { "stage": "4", "kind": "정상", "label": "A 내 메모 같은 값으로 수정", "expected": "200", "actual": "200", "match": true, "requestId": "066ccc19-9af0-480c-a345-388b68520813", "serverId": "icn1::iad1::qwfhg-1791959445956-3ce0dddce3f7", "at": "2026-10-14T06:30:41.046Z" },
+    { "stage": "8", "kind": "금지", "label": "A role 포함 수정", "expected": "403 ROLE_FIELD_REJECTED", "actual": "403 ROLE_FIELD_REJECTED", "match": true, "requestId": "8d0de5b3-7dc0-42de-a05a-11f88664a051", "serverId": "icn1::iad1::896fd-1791959447488-ea2e3f9deb44", "at": "2026-10-14T06:30:42.575Z" },
+    { "stage": "11", "kind": "금지", "label": "A 미승인 기기 ID로 목록", "expected": "403 DEVICE_NOT_APPROVED", "actual": "403 DEVICE_NOT_APPROVED", "match": true, "requestId": "0ac2d1ef-e3c2-49c2-a20a-07f31b3f525c", "serverId": "icn1::iad1::kvt2b-1791959448377-e5cdc61e7d38", "at": "2026-10-14T06:30:43.465Z" },
+    { "stage": "4", "kind": "금지", "label": "A가 B 메모 읽기", "expected": "404 NOTE_NOT_FOUND", "actual": "404 NOTE_NOT_FOUND", "match": true, "requestId": "adfa75c8-8a58-463b-bd9e-3ccee82c9ec2", "serverId": "icn1::iad1::kvt2b-1791959449253-b41146012965", "at": "2026-10-14T06:30:44.343Z" },
+    { "stage": "8", "kind": "금지", "label": "A 쿼리로 owner_id 지정", "expected": "404 ROUTE_NOT_ALLOWED", "actual": "404 ROUTE_NOT_ALLOWED", "match": true, "requestId": "5908f609-9cce-4e5c-831f-7931bb6cde94", "serverId": "icn1::iad1::kvt2b-1791959450318-59072c5ca170", "at": "2026-10-14T06:30:45.409Z" },
+    { "stage": "10", "kind": "금지", "label": "A가 B 메모 복원", "expected": "404 BACKUP_NOT_FOUND", "actual": "404 BACKUP_NOT_FOUND", "match": true, "requestId": "eda2b659-3b71-41cd-b17e-973dc9b87c92", "serverId": "icn1::iad1::kvt2b-1791959450770-16c8444019cd", "at": "2026-10-14T06:30:45.858Z" }
+  ]
+}
