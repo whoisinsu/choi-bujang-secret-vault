@@ -182,6 +182,7 @@ git grep -cE "$Q" 4f07b71
   - 사본의 ID·소유자·내용 해시(`sha256(sha256(title) ‖ sha256(body))`)를 대조해 틀리면 409 `BACKUP_VERIFY_FAILED`, 같은 id가 다른 사람 소유로 있으면 덮어쓰지 않고 409 `RESTORE_OWNER_CONFLICT`입니다.
   - 변조된 메모는 내용만 되돌리고, 지워진 메모는 다시 만듭니다. 그 뒤 그 한 건을 다시 읽어 ID·소유자·내용 해시가 사본과 같은지 확인합니다. 응답은 `{id, restored: 'content'|'recreated', contentSha256}`이며 본문은 돌려주지 않습니다.
   - 다른 메모는 건드리지 않습니다. 감사 기록 `public.restore_audit`에 결과·복원 전후 해시를 덧붙이며(본문·토큰 없음), DB 트리거로 수정·삭제·비우기를 막아 덧붙이기만 됩니다.
+  - 감사 이력·다른 서비스 규칙 보존: 보너스 xdr의 경보 처리 기록 `xdr/alerts.log`와 거부 규칙 `xdr/brute-force/deny-rules.json`·`xdr/web-injection/deny-rules.json`은 보너스 단계에서 `.gitignore`로 제외해 저장소에 없었습니다. 10단계부터 제외를 풀고 그대로 커밋해 보존합니다(문서용 주소·가상 계정만, 비밀값 검사 0건). 복원은 이 파일들을 바꾸지 않습니다.
   - 감사 기록 사본: DB의 `restore_audit`는 심판이 볼 수 없으므로, 학생이 SQL Editor에서 조회한 줄(`seq`·`at`·`result`·우리 테스트 B 여부)을 `policy/restore-audit.jsonl`에 덧붙이기만 하는 방식으로 남깁니다. 기존 줄은 지우거나 고치지 않습니다.
 - 비공개 사본(`supabase/step10_backup.sql`, Supabase SQL Editor에서 학생이 직접 실행): `notes_backup`·`restore_audit`를 만들고 RLS를 켜며 `PUBLIC`·`anon`·`authenticated` 권한을 모두 거둡니다. 사본 값은 지금 DB가 아니라 침해 전 4단계 커밋(`0ae3c0a`)의 `step4_owners.sql`에 고정된 공개 가능한 B 시험 메모(`b0000000-0000-4000-8000-000000000001`)이며, 미리 계산한 내용 해시와 맞을 때만 넣고 이미 있는 사본은 덮어쓰지 않습니다.
 - 10단계 저장점: `aleph.config.json`은 `step: 10`, `restoreRoute`는 `POST /api/restore`입니다. 처음에는 같은 경로를 `allowedRoutes`에도 더했지만, 재제출에서도 `S10_AUDIT_DROPPED`가 남고 심판 제출 뒤 `restore_audit`에 새 줄이 없어(1~4번은 학생 확인) "지정한 한 건 밖의 규칙 변경"으로 보고 `allowedRoutes`는 9단계와 같은 다섯 개로 되돌렸습니다. 판정기 `RULE_IDS`는 9단계와 같습니다. 자기 점검은 한도 20개를 지키려 7단계 가상 사건 세 줄을 한 줄로 묶고, 토큰 없는 `POST /api/restore`(실제 전송)·정책 사본 검증(`policy:diff` 실행 결과)·B 메모 복원(미실행)을 더했습니다. 정책 사본은 9단계 기준이라 `policy:diff`는 이번 저장점에서 바꾼 `aleph.config.json`을 차이로 보여 줍니다.
@@ -237,7 +238,7 @@ git grep -cE "$Q" 4f07b71
 - 경보: `xdr/fixtures/brute-force.json`(수업용 Wazuh 모양 28건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.
 - `xdr/brute-force/read-alerts.mjs`: 확인용. 시각·출발 주소·계정·규칙 수준·설명만 뽑고 비밀값처럼 보이는 값은 가립니다. `decide.mjs`는 불러오지 않습니다.
 - `xdr/brute-force/decide.mjs` + `patterns.mjs`: `decide(alert)`가 `{action, confidence, reason}`을 돌려줍니다. 같은 폴더의 `patterns.mjs`만 불러오고 내장 모듈·npm 패키지·JSON·네트워크·환경변수를 쓰지 않습니다. 수준 10 이상이고 strong 패턴(`burst_failures`, `password_spray`, `password_mutation`, `no_success_after_burst`)이 맞으면 `block`(0.85 이상), weak 패턴만 맞으면 `alert`(0.5 이상), 그 밖은 `record`입니다. reason에 근거 패턴 이름을 한 줄로 적습니다. Jev는 저장소에 연결 정보가 없어 부르지 않고 애매한 건은 `alert`로 둡니다.
-- `xdr/brute-force/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/brute-force/deny-rules.json`에 넣고, block·alert를 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정은 막지 않고, 같은 묶음에서 정상·애매 이벤트에 나온 주소도 막지 않습니다. 두 결과 파일은 Git에서 제외합니다. 판정기 `src/decider.mjs`와 `RULE_IDS`(`starter.deny`)는 고치지 않았습니다.
+- `xdr/brute-force/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/brute-force/deny-rules.json`에 넣고, block·alert를 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정은 막지 않고, 같은 묶음에서 정상·애매 이벤트에 나온 주소도 막지 않습니다. 두 결과 파일은 10단계부터 감사 이력·다른 서비스 규칙으로 저장소에 보존합니다(문서용 주소·가상 계정만, 비밀값 없음). 판정기 `src/decider.mjs`와 `RULE_IDS`(`starter.deny`)는 고치지 않았습니다.
 - 다시 실행하는 방법: `npm run xdr:run -- brute-force` → `xdr/brute-force/result.json`의 `counts`가 `{"block":10,"alert":9,"record":9}`, 정상 이벤트(bf-20~28)는 모두 `record`입니다. `node xdr/brute-force/respond.mjs` → 거부 규칙 9개, bf-01~10 주소만 거부되고 나머지는 통과합니다. `node xdr/brute-force/read-alerts.mjs` → `경보 28건 · 뽑은 줄 28줄 · 일치`.
 - 격리 확인: `decide.mjs`·`patterns.mjs`만 빈 폴더에 두고 환경변수를 비우고 그 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 28건 모두 같았습니다(가장 느린 경보 1ms). 실제로 인터넷을 끄고 돌린 것은 아닙니다.
 
@@ -249,7 +250,7 @@ git grep -cE "$Q" 4f07b71
 - `xdr/web-injection/read-alerts.mjs`: 확인용. 시각·출발 주소·계정·규칙 수준·설명만 뽑고 비밀값처럼 보이는 값은 가립니다. 요청 주소의 주입 문자열은 출력하지 않습니다.
 - `xdr/web-injection/patterns.json`: 근거 MITRE ATT&CK T1190. `sql_injection`(CWE-89), `script_injection`(CWE-79), `path_traversal_repeat`(CWE-22), `command_injection`(CWE-78) 네 패턴에 찾는 조건(실제 형태·수업용 표기·설명 단서·신호 아님)과 근거 한 줄을 적었습니다. 명령 주입은 `;`·`|`·`&` 뒤 명령어, `&&`·`||`, `$( )`, 백틱을 보고, URL 인자를 나누는 `&` 하나는 신호로 보지 않습니다.
 - `xdr/web-injection/decide.mjs`: 패턴을 파일 맨 위 상수로 옮겨 적고 import·파일 읽기쓰기·네트워크 없이 혼자 계산합니다. 패턴과 뚜렷하게 맞고 같은 주소에서 5회 이상 반복되면 `block`(0.85 이상), 한 번뿐이거나 일부만 맞는 T1190 경보는 `alert`(0.5 이상), 그 밖은 `record`입니다. reason에 근거 패턴 이름을 한 줄로 적습니다.
-- `xdr/web-injection/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/web-injection/deny-rules.json`(Git 제외)에 넣고, block·alert를 `moduleKey`를 붙여 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정과 정상·애매 이벤트 주소는 막지 않습니다. 판정기 `src/decider.mjs`와 `RULE_IDS`는 고치지 않았습니다.
+- `xdr/web-injection/respond.mjs`: `block` 판정의 출발 주소만 거부 규칙(만료 60분, 근거 경보 번호)으로 `xdr/web-injection/deny-rules.json`(10단계부터 저장소에 보존)에 넣고, block·alert를 `moduleKey`를 붙여 `xdr/alerts.log`에 한 줄씩 쌓습니다. 계정과 정상·애매 이벤트 주소는 막지 않습니다. 판정기 `src/decider.mjs`와 `RULE_IDS`는 고치지 않았습니다.
 - 다시 실행하는 방법: `npm run xdr:run -- web-injection` → `counts`가 `{"block":8,"alert":9,"record":9}`, 명확한 공격 wi-01~08은 모두 `block`, 정상 이벤트(wi-18~26)는 모두 `record`. `node xdr/web-injection/respond.mjs` → 거부 규칙 7개, wi-01~08 주소만 거부. `node xdr/web-injection/read-alerts.mjs` → `경보 26건 · 뽑은 줄 26줄 · 일치`.
 - 격리 확인: `decide.mjs` 한 파일만 빈 폴더에 두고 환경변수를 비우고 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 26건 모두 같았습니다(가장 느린 경보 1ms).
 

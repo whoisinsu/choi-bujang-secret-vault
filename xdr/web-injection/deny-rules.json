@@ -1,0 +1,106 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "web-injection",
+  "updatedAt": "2026-10-08T06:21:27.168Z",
+  "rules": [
+    {
+      "id": "xdr-wi-deny-203.0.113.10",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-01",
+        "wi-02"
+      ],
+      "reason": "명확한 주입 · 패턴: script_injection · 반복 9회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-198.51.100.15",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.15"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-03"
+      ],
+      "reason": "명확한 주입 · 패턴: path_traversal_repeat · 반복 8회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-192.0.2.15",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.15"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-04"
+      ],
+      "reason": "명확한 주입 · 패턴: sql_injection · 반복 20회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-203.0.113.18",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.18"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-05"
+      ],
+      "reason": "명확한 주입 · 패턴: sql_injection, script_injection · 반복 15회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-192.0.2.21",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.21"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-07"
+      ],
+      "reason": "명확한 주입 · 패턴: path_traversal_repeat · 반복 14회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-203.0.113.22",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.22"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T05:49:37.311Z",
+      "evidence": [
+        "wi-08"
+      ],
+      "reason": "명확한 주입 · 패턴: sql_injection · 반복 10회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    },
+    {
+      "id": "xdr-wi-deny-198.51.100.18",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.18"
+      },
+      "source": "xdr/web-injection",
+      "createdAt": "2026-10-08T06:21:27.168Z",
+      "evidence": [
+        "wi-06"
+      ],
+      "reason": "명확한 주입 · 패턴: command_injection · 반복 11회",
+      "expiresAt": "2026-10-08T07:21:27.168Z"
+    }
+  ]
+}

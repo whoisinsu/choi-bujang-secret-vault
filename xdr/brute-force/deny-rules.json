@@ -1,0 +1,134 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "brute-force",
+  "updatedAt": "2026-10-08T05:20:17.646Z",
+  "rules": [
+    {
+      "id": "xdr-bf-deny-203.0.113.10",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-01",
+        "bf-02"
+      ],
+      "reason": "명확한 공격 · 패턴: password_spray",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-198.51.100.20",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.20"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-03"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures, password_spray",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-192.0.2.30",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.30"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-04"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures, no_success_after_burst",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-203.0.113.21",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.21"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-05"
+      ],
+      "reason": "명확한 공격 · 패턴: password_spray",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-198.51.100.44",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.44"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-06"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-203.0.113.15",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.15"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-07"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures, password_mutation",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-192.0.2.18",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.18"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-08"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-198.51.100.8",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.8"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-09"
+      ],
+      "reason": "명확한 공격 · 패턴: password_spray",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    },
+    {
+      "id": "xdr-bf-deny-203.0.113.40",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.40"
+      },
+      "source": "xdr/brute-force",
+      "createdAt": "2026-10-08T05:20:17.539Z",
+      "evidence": [
+        "bf-10"
+      ],
+      "reason": "명확한 공격 · 패턴: burst_failures, no_success_after_burst",
+      "expiresAt": "2026-10-08T06:20:17.646Z"
+    }
+  ]
+}

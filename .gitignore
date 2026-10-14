@@ -5,6 +5,3 @@ bundle-notes.json
 node_modules/
 public/aleph.json
 supabase/step2_vault_notes.sql
-xdr/alerts.log
-xdr/brute-force/deny-rules.json
-xdr/web-injection/deny-rules.json
