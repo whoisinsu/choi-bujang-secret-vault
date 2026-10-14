@@ -404,7 +404,6 @@ async function sendGet(attackId, url, headers = {}) {
 
 async function runStep12Checks(app, config) {
   const rowsOf = (data) => (Array.isArray(data) ? data.length : 0);
-  const path = (url) => `${url.pathname}${url.search}`;
   const gets = [
     ['anonymous_static_note_read', '비로그인 GET /data.json은 404', new URL('/data.json', app), {}, () => ''],
     ['anonymous_api_note_list', '토큰 없는 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app), {}, (r) => `, 메모 ${rowsOf(r.body)}건`],
@@ -420,12 +419,12 @@ async function runStep12Checks(app, config) {
   for (const [attackId, expected, base, headers, extra] of gets) {
     // 심판이 요청 기록을 attackId로 찾을 수 있게 주소에 attackId를 붙입니다. 자료실 경로들은 이 쿼리와 상관없이
     // 로그인·메서드 검사가 먼저라 결과(404·401·405·200)가 같습니다(배포 주소에서 확인).
-    const url = new URL(base);
-    url.searchParams.set('attackId', attackId);
-    const r = await sendGet(attackId, url, headers);
+    // 격리 환경의 URL에는 searchParams가 없을 수 있어 주소 문자열에 직접 붙입니다(기본 주소들에는 쿼리가 없음).
+    const target = `${String(base)}?attackId=${encodeURIComponent(attackId)}`;
+    const r = await sendGet(attackId, target, headers);
     // 응답을 실제로 받은 요청만 결과를 적고, 실패한 요청은 not_run으로 둡니다(없는 결과를 채우지 않음).
     results.push({ attackId, expected, observed: r.failed ? 'not_run'
-      : `GET ${path(url)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
+      : `GET ${target.slice(String(app).replace(/\/$/u, '').length)} HTTP ${r.status}${extra(r)} · 요청 ID ${r.requestId}` });
   }
   const notRun = [
     ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)'],
