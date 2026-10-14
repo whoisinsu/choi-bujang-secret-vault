@@ -405,15 +405,11 @@ async function sendGet(attackId, url, headers = {}) {
 async function runStep12Checks(app, config) {
   const rowsOf = (data) => (Array.isArray(data) ? data.length : 0);
   const path = (url) => `${url.pathname}${url.search}`;
-  const anonUrl = new URL(config.originalApiUrl);
-  anonUrl.search = 'select=id&limit=1';
   const gets = [
     ['anonymous_static_note_read', '비로그인 GET /data.json은 404', new URL('/data.json', app), {}, () => ''],
     ['anonymous_api_note_list', '토큰 없는 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app), {}, (r) => `, 메모 ${rowsOf(r.body)}건`],
     ['forged_token_note_list', '서명이 맞지 않는 토큰의 GET /api/notes는 401, 메모 0건', new URL('/api/notes', app),
       { Authorization: FORGED_TOKEN }, (r) => `, 메모 ${rowsOf(r.body)}건`],
-    ['anon_data_api_select', 'anon 키로 원본 자료 API(notes) GET은 권한 없음(401·403)', anonUrl, { apikey: ANON_KEY },
-      (r) => `, 행 ${rowsOf(r.body)}개`],
     ['restore_route_get', 'GET /api/restore는 복원하지 않고 405', new URL('/api/restore', app), {}, () => ''],
     ['device_api_anonymous', '토큰 없는 GET /api/devices는 401', new URL('/api/devices', app), {}, () => ''],
     ['war_room_anonymous', '토큰 없는 GET /api/war-room은 401', new URL('/api/war-room', app), {}, () => ''],
@@ -421,7 +417,11 @@ async function runStep12Checks(app, config) {
       (r) => `, 이름 ${typeof r.body?.name === 'string' ? '있음' : '없음'}, display ${r.body?.display ?? '없음'}`],
   ];
   const results = [];
-  for (const [attackId, expected, url, headers, extra] of gets) {
+  for (const [attackId, expected, base, headers, extra] of gets) {
+    // 심판이 요청 기록을 attackId로 찾을 수 있게 주소에 attackId를 붙입니다. 자료실 경로들은 이 쿼리와 상관없이
+    // 로그인·메서드 검사가 먼저라 결과(404·401·405·200)가 같습니다(배포 주소에서 확인).
+    const url = new URL(base);
+    url.searchParams.set('attackId', attackId);
     const r = await sendGet(attackId, url, headers);
     // 응답을 실제로 받은 요청만 결과를 적고, 실패한 요청은 not_run으로 둡니다(없는 결과를 채우지 않음).
     results.push({ attackId, expected, observed: r.failed ? 'not_run'
@@ -430,6 +430,7 @@ async function runStep12Checks(app, config) {
   const notRun = [
     ['anonymous_api_note_write', '토큰 없는 POST·PUT·DELETE /api/notes는 401(쓰기 요청이라 제출 묶음에서 보내지 않음)'],
     ['anon_data_api_write', 'anon 키로 원본 notes INSERT·UPDATE·DELETE는 401(쓰기 요청이라 보내지 않음)'],
+    ['anon_data_api_select', 'anon 키로 원본 notes GET은 401: Supabase가 attackId 쿼리를 열 필터로 해석해 400이 되므로 이 묶음에서는 보내지 않음(실측은 retest/results.md)'],
     ['restore_device_write_anonymous', '토큰 없는 POST /api/restore·POST /api/devices는 401(쓰기 요청이라 보내지 않음)'],
     ['login_required_checks', 'B의 A 메모 접근 404, B 메모 복원, 승인 전후 자료, 작전실 요약(로그인 필요, retest/results.md에 따로 실측)'],
     ['engine_not_connected', '재로그인 차단·회수 집행(ALEPH SDP 엔진 연결 필요)'],
