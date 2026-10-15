@@ -1,0 +1,106 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "persistence",
+  "updatedAt": "2026-10-15T03:50:07.244Z",
+  "rules": [
+    {
+      "id": "xdr-ps-deny-203.0.113.12",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.12"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-01",
+        "ps-02"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unfamiliar_scheduled_task · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-198.51.100.12",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.12"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-03"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: startup_folder_change · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-192.0.2.12",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.12"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-04"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unsigned_new_service · 반복 3회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-203.0.113.19",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.19"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-05"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unfamiliar_scheduled_task · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-198.51.100.19",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.19"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-06"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unsigned_new_service · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-192.0.2.19",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.19"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-07"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unfamiliar_scheduled_task, startup_folder_change · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    },
+    {
+      "id": "xdr-ps-deny-203.0.113.33",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.33"
+      },
+      "source": "xdr/persistence",
+      "createdAt": "2026-10-15T03:50:07.244Z",
+      "evidence": [
+        "ps-08"
+      ],
+      "reason": "명확한 지속성 심기 · 패턴: unsigned_new_service · 쓰기 가능 경로 · 반복 0회",
+      "expiresAt": "2026-10-15T04:50:07.244Z"
+    }
+  ]
+}
