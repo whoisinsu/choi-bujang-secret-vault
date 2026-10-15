@@ -1,0 +1,77 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "privilege",
+  "basis": "MITRE ATT&CK T1068 Exploitation for Privilege Escalation · T1078 Valid Accounts — 평범한 계정을 도용하거나 권한 상승을 악용해 관리자 권한을 얻고 관리자 명령을 실행하는 기법",
+  "scope": "계정·그룹 변경 경보와 관리자 권한 사용 경보의 그룹(data.group), 계정(data.srcuser), 연속 횟수(data.count), 설명(rule.description), 기법 꼬리표(rule.mitre), 시각(timestamp)을 봅니다. 신호는 관리자 그룹 추가, 처음 보는 관리자 명령, 업무 시간 밖 권한 사용 세 가지입니다.",
+  "note": "정규식은 대소문자를 가리지 않습니다(flags i). 업무 시간은 08~18시(KST)로 보고, 경보 시각이 그 밖이거나 설명이 수업·업무 시간 밖이라고 적으면 시간 밖으로 봅니다. 평소 목록(baseline)은 늘 보이던 관리 계정·평소 주소로, 맞으면 신호를 낮출 뿐 그것만으로 통과시키지 않습니다. 계정 이름은 판단 이유에 쓰지만 비밀번호 등 값은 적지 않습니다.",
+  "adminGroups": [
+    "^administrators$",
+    "^domain admins$",
+    "^enterprise admins$",
+    "^schema admins$",
+    "^backup operators$",
+    "^remote management users$"
+  ],
+  "businessHours": { "startHour": 8, "endHour": 18, "timezone": "+09:00" },
+  "baseline": {
+    "accounts": ["admin01", "svc-lab"],
+    "descriptionHints": ["평소 주소", "평소 예약 작업", "수업용 관리 계정"]
+  },
+  "patterns": [
+    {
+      "name": "admin_group_added",
+      "signal": "평범한 계정의 관리자 그룹 추가",
+      "match": {
+        "mitre": ["T1078"],
+        "requires": "data.group이 관리자 그룹(adminGroups)이고 그룹 추가·재추가가 일어남. 같은 주소에서 여러 계정이 추가되면(data.count 2 이상) 더 뚜렷함",
+        "descriptionHints": [
+          "관리자 그룹에 추가됐습니다",
+          "관리자 그룹에 들어가고",
+          "관리자 그룹 추가",
+          "다시 관리자로 들어왔습니다"
+        ],
+        "notASignal": "과제·수업용 그룹(project-week3, lab-notes, class-readers)에 추가되거나 그룹 설명만 바뀜, 그룹 소속을 읽기만 함, 자기 계정 종류 조회는 신호가 아닙니다."
+      },
+      "evidence": "T1078 (ATT&CK 세부 기법은 T1098.007 Additional Local or Domain Groups) — 도용한 평범한 계정을 관리자 그룹에 넣어 정상 계정처럼 관리자 권한을 쓰는 기법."
+    },
+    {
+      "name": "unfamiliar_admin_command",
+      "signal": "처음 보는 관리자 명령·세션 권한 상승",
+      "match": {
+        "mitre": ["T1068"],
+        "requires": "관리자 명령 실행이나 세션의 관리자 권한 전환이 있고, 방금 관리자가 된 계정·처음 보는 주소·다른 계정의 권한 중 하나와 함께 일어남",
+        "descriptionHints": [
+          "방금 관리자가 된",
+          "처음 보는 주소에서 관리자 명령",
+          "세션이 관리자 권한으로 바뀌었고",
+          "다른 계정의 권한으로 관리자 명령",
+          "곧바로 권한 명령을 실행"
+        ],
+        "notASignal": "평소 주소에서 관리자 명령 한 번, 관리자 명령 실패 1건, 권한 상승 창이 뜨고 취소됨, 수업 중 권한 상승 뒤 이어진 명령 없음은 애매한 시도입니다."
+      },
+      "evidence": "T1068 — 권한 상승을 악용해 평범한 계정·세션이 관리자 권한을 얻고 평소 쓰지 않던 관리자 명령을 실행하는 기법."
+    },
+    {
+      "name": "off_hours_privilege_use",
+      "signal": "업무 시간 밖 권한 사용",
+      "match": {
+        "mitre": ["T1078", "T1068"],
+        "requires": "관리자 명령·그룹 추가 같은 권한 사용이 업무 시간(businessHours) 밖에 일어남(경보 시각 또는 설명)",
+        "descriptionHints": [
+          "수업 시간 밖에",
+          "업무처럼 보이지 않는 시각"
+        ],
+        "notASignal": "수업 시간 안의 권한 상승 창·과제 그룹 추가, 업무 시간 밖이라도 로그인·로그아웃만 있고 권한 사용이 없으면 신호가 아닙니다."
+      },
+      "evidence": "T1078 — 도용한 정상 계정은 주인이 쓰지 않는 시각에 권한을 쓰는 경우가 많아, 업무 시간 밖 권한 사용을 정상 계정 도용의 신호로 보는 기법."
+    }
+  ],
+  "negationHints": [
+    "관리자 그룹은 아닙니다",
+    "변경은 없습니다",
+    "이어서 명령은 없습니다",
+    "취소됐습니다",
+    "읽기만 했습니다",
+    "설명만 바뀌었습니다"
+  ]
+}

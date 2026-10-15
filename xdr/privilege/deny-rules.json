@@ -1,0 +1,136 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "privilege",
+  "updatedAt": "2026-10-15T05:14:47.833Z",
+  "rules": [
+    {
+      "id": "xdr-pv-deny-user01-203.0.113.11",
+      "action": "deny",
+      "match": {
+        "srcuser": "user01",
+        "srcip": "203.0.113.11"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-01",
+        "pv-02"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user02-198.51.100.11",
+      "action": "deny",
+      "match": {
+        "srcuser": "user02",
+        "srcip": "198.51.100.11"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-03"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command, off_hours_privilege_use · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user03-192.0.2.11",
+      "action": "deny",
+      "match": {
+        "srcuser": "user03",
+        "srcip": "192.0.2.11"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-04"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added, unfamiliar_admin_command · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user04-203.0.113.17",
+      "action": "deny",
+      "match": {
+        "srcuser": "user04",
+        "srcip": "203.0.113.17"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-05"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added · 반복 4회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user05-198.51.100.17",
+      "action": "deny",
+      "match": {
+        "srcuser": "user05",
+        "srcip": "198.51.100.17"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-06"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user06-192.0.2.17",
+      "action": "deny",
+      "match": {
+        "srcuser": "user06",
+        "srcip": "192.0.2.17"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-07"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added, off_hours_privilege_use · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user07-203.0.113.27",
+      "action": "deny",
+      "match": {
+        "srcuser": "user07",
+        "srcip": "203.0.113.27"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-08"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    },
+    {
+      "id": "xdr-pv-deny-user08-198.51.100.27",
+      "action": "deny",
+      "match": {
+        "srcuser": "user08",
+        "srcip": "198.51.100.27"
+      },
+      "scope": "session",
+      "source": "xdr/privilege",
+      "createdAt": "2026-10-15T05:14:47.833Z",
+      "evidence": [
+        "pv-09"
+      ],
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added · 반복 2회",
+      "expiresAt": "2026-10-15T06:14:47.833Z"
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "privilege",
+  "decisions": [
+    {
+      "alertId": "pv-01",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added · 반복 0회"
+    },
+    {
+      "alertId": "pv-02",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회"
+    },
+    {
+      "alertId": "pv-03",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command, off_hours_privilege_use · 반복 0회"
+    },
+    {
+      "alertId": "pv-04",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added, unfamiliar_admin_command · 반복 0회"
+    },
+    {
+      "alertId": "pv-05",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added · 반복 4회"
+    },
+    {
+      "alertId": "pv-06",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회"
+    },
+    {
+      "alertId": "pv-07",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added, off_hours_privilege_use · 반복 0회"
+    },
+    {
+      "alertId": "pv-08",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 권한 가로채기 · 패턴: unfamiliar_admin_command · 반복 0회"
+    },
+    {
+      "alertId": "pv-09",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "명확한 권한 가로채기 · 패턴: admin_group_added · 반복 2회"
+    },
+    {
+      "alertId": "pv-10",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 패턴 일부: unfamiliar_admin_command"
+    },
+    {
+      "alertId": "pv-11",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: admin_group_added"
+    },
+    {
+      "alertId": "pv-12",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 패턴 일부: unfamiliar_admin_command · 평소 목록"
+    },
+    {
+      "alertId": "pv-13",
+      "action": "alert",
+      "confidence": 0.5,
+      "reason": "애매한 시도 · 근거 패턴 없음(T1068·T1078 경보만)"
+    },
+    {
+      "alertId": "pv-14",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: unfamiliar_admin_command"
+    },
+    {
+      "alertId": "pv-15",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 패턴 일부: admin_group_added"
+    },
+    {
+      "alertId": "pv-16",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: unfamiliar_admin_command"
+    },
+    {
+      "alertId": "pv-17",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 패턴 일부: admin_group_added"
+    },
+    {
+      "alertId": "pv-18",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음"
+    },
+    {
+      "alertId": "pv-19",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "정상 이벤트 · 맞는 패턴 없음(종류만 비슷: admin_group_added)"
+    },
+    {
+      "alertId": "pv-20",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음"
+    },
+    {
+      "alertId": "pv-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목록"
+    },
+    {
+      "alertId": "pv-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목록"
+    },
+    {
+      "alertId": "pv-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음"
+    },
+    {
+      "alertId": "pv-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음"
+    },
+    {
+      "alertId": "pv-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목록"
+    },
+    {
+      "alertId": "pv-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음"
+    }
+  ],
+  "counts": {
+    "block": 9,
+    "alert": 8,
+    "record": 9
+  }
+}

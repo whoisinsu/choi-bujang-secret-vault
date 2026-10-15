@@ -304,6 +304,18 @@ git grep -cE "$Q" 4f07b71
 
 **남은 점:** 판정기 요청 계약에 출발 주소·PC 이름이 없어 거부 규칙과 "그 PC의 접속 격리"는 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조). 파일 서명·해시를 직접 검증하지 않고 경보 설명의 서명 여부를 그대로 씁니다.
 
+## 보너스 xdr-05: 권한 가로채기 (privilege)
+
+- 경보: `xdr/fixtures/privilege.json`(수업용 Wazuh 모양 26건, 문서용 주소·가상 계정). 원본은 고치지 않습니다.
+- `xdr/privilege/read-alerts.mjs`: 확인용. 시각·출발 주소·계정·규칙 수준·설명만 뽑고 비밀값처럼 보이는 값은 가립니다. 그룹·횟수는 뽑지 않습니다. `decide.mjs`는 불러오지 않습니다.
+- `xdr/privilege/patterns.json`: 근거 MITRE ATT&CK T1068 · T1078. `admin_group_added`(T1078, ATT&CK 세부 기법 T1098.007), `unfamiliar_admin_command`(T1068), `off_hours_privilege_use`(T1078, 업무 시간 08~18시 KST 밖) 세 패턴에 찾는 조건·신호 아님·근거 한 줄을 적었습니다. 평소 목록(`admin01`·`svc-lab`, "평소 주소")은 확신도를 낮출 뿐 그것만으로 통과시키지 않습니다.
+- `xdr/privilege/decide.mjs`: 패턴을 파일 맨 위 상수로 옮겨 적고 import·파일 읽기쓰기·네트워크 없이 혼자 계산합니다. 관리자 그룹 추가·처음 보는 관리자 명령·업무 시간 밖 권한 사용(권한 사용 경보일 때만)에 뚜렷하게 맞으면 `block`(0.88~0.92), 일부만 맞는 수준 5 이상의 T1068·T1078 경보는 `alert`(0.50~0.56), 그 밖은 `record`입니다. reason에 근거 패턴 이름을 한 줄로 적습니다.
+- `xdr/privilege/respond.mjs`: `block` 판정의 **계정 + 출발 주소** 짝 세션만 거부 규칙(만료 60분, 근거 경보 번호, `scope: session`)으로 `xdr/privilege/deny-rules.json`에 넣고, block·alert를 `moduleKey`를 붙여 `xdr/alerts.log`에 한 줄씩 덧붙입니다(기존 줄은 그대로). 막힌 계정 8개가 모두 다른 주소의 정상·애매 이벤트에도 나오므로 계정만으로는 막지 않고, 같은 계정의 평소 주소 세션은 통과합니다. 판정기 `src/decider.mjs`와 `RULE_IDS`는 고치지 않았습니다.
+- 다시 실행하는 방법: `npm run xdr:run -- privilege`(PowerShell은 `npm.cmd`) → `counts`가 `{"block":9,"alert":8,"record":9}`, 명확한 공격 pv-01~09는 모두 `block`, 정상 이벤트(pv-18~26)는 모두 `record`. `node xdr/privilege/respond.mjs` → 거부 규칙 8개, pv-01~09 세션만 거부(실행할 때마다 알림 17줄이 더 쌓임). `node xdr/privilege/read-alerts.mjs` → `경보 26건 · 뽑은 줄 26줄 · 일치`.
+- 격리 확인: `decide.mjs` 한 파일만 빈 폴더에 두고 환경변수를 비우고 폴더 밖 파일 읽기를 막은 Node 권한 모드에서 경보마다 2초 제한으로 돌려 `npm run xdr:run` 결과와 26건 모두 같았습니다(가장 느린 경보 0.4ms). 실제로 인터넷을 끄고 돌린 것은 아닙니다.
+
+**남은 점:** 판정기 요청 계약에 계정 이름·출발 주소가 없어(주체는 `subjectId`만) 세션 거부 규칙은 아직 실제 요청에 적용되지 않습니다(확인은 시험 경보 대조). 업무 시간 밖 판단은 경보 시각을 KST로 보고, 이 묶음에서는 설명으로만 드러납니다.
+
 ## 12단계: 탈환 작전실을 완성합니다
 
 - 작전실 요약(`src/war-room-api.mjs`, `api/war-room.js`, 화면 `public/index.html`·`auth.js`의 "탈환 작전실"): `GET /api/war-room`은 로그인한 사용자 본인의 기록만 모읍니다. 판정기 규칙(`RULE_IDS`와 서버에서 `decide()`에 가상 요청 다섯 개를 넣은 결과), 탐지 사건(`detect()`·`proposeRevocation()` 가상 실행), 회수 상태(`device_registrations` 서버 기록), 복구 버전(정책 사본 버전·지문 검증, `notes_backup`·`restore_audit` 서버 기록)에 출처(서버 기록·로컬 가상·미실행)를 붙입니다. 메모 본문·제목·공개키·토큰은 넣지 않고 ID는 앞 4자리만 보여 줍니다. 화면은 서버가 준 가린 기록을 다시 세어 서버 수치와 "일치/불일치"만 표시하고 성공 문구를 만들지 않습니다. 로그인 없이 부르면 401, 쿼리 404, GET이 아니면 405입니다.
@@ -324,7 +336,7 @@ git grep -cE "$Q" 4f07b71
 | **제공: ALEPH SDP 엔진** | 신원·기기·경로를 먼저 확인하고 판정기에 `aleph.decision.v1` 요청을 보내는 반 운영 엔진, 미등록 기기 차단 릴레이, 탐지기의 회수 제안 집행, 심판 | 이 저장소에 없음. 연결 방식만 계약 문서 `docs/DECIDER_REQUEST.md`·`docs/DETECT_EVENTS.md`(시작 틀 그대로)로 정해져 있음 |
 | **제공: 시작 틀(바꾸지 않음)** | 로그인 토큰 검사, 제출 묶음, 판정기·탐지기 연습, 보너스 실행기, 시험 | `src/verify-login.mjs`, `scripts/bundle.mjs`·`decider-test.mjs`·`detect-test.mjs`·`fixture-7.mjs`·`xdr-run.mjs`, `test/*`, `docs/*`, `package/*`, `xdr/fixtures/*`, `xdr/README.md`, `AGENTS.md`, `api/ai.js`·`api/threat-intel.js`(미구현 501) |
 | **시작 틀을 학생이 고친 파일** | 빌드·배포 정보, 설정, 판정기·탐지기 본문, 자기 점검, 화면 틀 | `scripts/build-public.mjs`, `scripts/deployment-identity.mjs`(3·5·10단계 값 공개), `aleph.config.json`, `src/decider.mjs`, `src/detect.mjs`, `src/attack-check.mjs`, `public/index.html`, `vercel.json`, `package.json`, `.gitignore`, `data.json` |
-| **학생 작성** | 자료 API·로그인 대행·구역·복원·기기 승인·작전실 서버 함수, 접속 앱 화면, 정책 비교·되돌리기, 재시험 표, DB SQL, 보너스 xdr 모듈 | `api/notes/*`, `api/auth/*`, `api/restore.js`, `api/devices.js`, `api/war-room.js`, `src/notes-api.mjs`·`auth-proxy.mjs`·`resources.mjs`·`restore-api.mjs`·`devices-api.mjs`·`war-room-api.mjs`, `public/auth.js`·`app.js`·`sw.js`·`manifest.webmanifest`·`offline.html`·`icon.svg`, `scripts/policy-diff.mjs`·`retest.mjs`, `policy/*`, `retest/*`, `supabase/step*.sql`, `xdr/brute-force/*`, `xdr/web-injection/*`, `xdr/known-cve/*`, `xdr/persistence/*` |
+| **학생 작성** | 자료 API·로그인 대행·구역·복원·기기 승인·작전실 서버 함수, 접속 앱 화면, 정책 비교·되돌리기, 재시험 표, DB SQL, 보너스 xdr 모듈 | `api/notes/*`, `api/auth/*`, `api/restore.js`, `api/devices.js`, `api/war-room.js`, `src/notes-api.mjs`·`auth-proxy.mjs`·`resources.mjs`·`restore-api.mjs`·`devices-api.mjs`·`war-room-api.mjs`, `public/auth.js`·`app.js`·`sw.js`·`manifest.webmanifest`·`offline.html`·`icon.svg`, `scripts/policy-diff.mjs`·`retest.mjs`, `policy/*`, `retest/*`, `supabase/step*.sql`, `xdr/brute-force/*`, `xdr/web-injection/*`, `xdr/known-cve/*`, `xdr/persistence/*`, `xdr/privilege/*` |
 
 판정기(`src/decider.mjs`)와 탐지기(`src/detect.mjs`)는 학생이 쓴 규칙이지만, 실제 접속에서 이 함수를 부르고 결과를 집행하는 것은 ALEPH SDP 엔진입니다. 이 저장소의 자료 API는 판정기를 부르지 않습니다. 로컬 연습(`decider:test`·`fixture:7`·`detect:test`)과 작전실의 판정기·탐지기 결과는 엔진·심판 판정이 아닙니다.
 
@@ -345,7 +357,7 @@ git grep -cE "$Q" 4f07b71
 |---|---|---|
 | 학생 판정기 | `npm run decider:test`, `npm run fixture:7` | 네 줄 `통과`, 정상 allow·복합 이상 step_up(로컬 연습) |
 | 학생 탐지 규칙 | `npm run detect:test` | 여섯 줄 `통과`(로컬 연습) |
-| 보너스 xdr | `npm run xdr:run -- brute-force`, `npm run xdr:run -- web-injection`, `npm run xdr:run -- known-cve`, `npm run xdr:run -- persistence` | 보너스 절의 counts와 같음 |
+| 보너스 xdr | `npm run xdr:run -- brute-force`, `npm run xdr:run -- web-injection`, `npm run xdr:run -- known-cve`, `npm run xdr:run -- persistence`, `npm run xdr:run -- privilege` | 보너스 절의 counts와 같음 |
 | 정책 사본 | `npm run policy:diff` | 사본 `policy@240d023` 검증 통과와 변경 범위 |
 | 접속 앱·자료실 | 배포 주소 접속 → 로그인 → "이 기기"에서 **승인 요청** → SQL Editor에서 그 16자리 기기 ID를 `approved`로(`supabase/step11_devices.sql` 맨 아래 문장, `<…>` 없이) → **승인 결과 확인** | 승인 전 자료 없음, "승인됨" 뒤 기존 메모 화면. 새로고침하면 로그인·승인을 다시 함(세션·기기 키는 메모리에만) |
 | 작전실 | 로그인 뒤 **작전실 불러오기**, 승인 기기에서 **로그인 재시험** | 네 항목 "기록 다시 세기: 일치", 재시험 8줄 일치 |
