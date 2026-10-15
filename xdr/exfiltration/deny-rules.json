@@ -1,0 +1,129 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "exfiltration",
+  "updatedAt": "2026-10-15T05:41:44.727Z",
+  "rules": [
+    {
+      "id": "xdr-ex-deny-203.0.113.50",
+      "action": "deny",
+      "match": {
+        "dstip": "203.0.113.50"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-01",
+        "ex-03"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, c2_channel_repeat_transfer · 90MB · 파일 0건 · 반복 8회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-198.51.100.40",
+      "action": "deny",
+      "match": {
+        "dstip": "198.51.100.40"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-02",
+        "ex-04"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 120MB · 파일 60건 · 반복 0회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-203.0.113.55",
+      "action": "deny",
+      "match": {
+        "dstip": "203.0.113.55"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-05"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 70MB · 파일 140건 · 반복 0회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-192.0.2.90",
+      "action": "deny",
+      "match": {
+        "dstip": "192.0.2.90"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-06"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 210MB · 파일 0건 · 반복 15회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-198.51.100.45",
+      "action": "deny",
+      "match": {
+        "dstip": "198.51.100.45"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-07"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 150MB · 파일 3건 · 반복 0회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-203.0.113.60",
+      "action": "deny",
+      "match": {
+        "dstip": "203.0.113.60"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-08"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 320MB · 파일 400건 · 반복 0회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-203.0.113.61",
+      "action": "deny",
+      "match": {
+        "dstip": "203.0.113.61"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-09"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, c2_channel_repeat_transfer · 80MB · 파일 0건 · 반복 9회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    },
+    {
+      "id": "xdr-ex-deny-198.51.100.46",
+      "action": "deny",
+      "match": {
+        "dstip": "198.51.100.46"
+      },
+      "direction": "outbound",
+      "source": "xdr/exfiltration",
+      "createdAt": "2026-10-15T05:41:44.727Z",
+      "evidence": [
+        "ex-10"
+      ],
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 110MB · 파일 2건 · 반복 0회",
+      "expiresAt": "2026-10-15T06:41:44.727Z"
+    }
+  ]
+}

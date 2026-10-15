@@ -1,0 +1,191 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "exfiltration",
+  "decisions": [
+    {
+      "alertId": "ex-01",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 240MB · 파일 200건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-02",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 180MB · 파일 1건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-03",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, c2_channel_repeat_transfer · 90MB · 파일 0건 · 반복 8회"
+    },
+    {
+      "alertId": "ex-04",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 120MB · 파일 60건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-05",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 70MB · 파일 140건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-06",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 210MB · 파일 0건 · 반복 15회"
+    },
+    {
+      "alertId": "ex-07",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 150MB · 파일 3건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-08",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination · 320MB · 파일 400건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-09",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, c2_channel_repeat_transfer · 80MB · 파일 0건 · 반복 9회"
+    },
+    {
+      "alertId": "ex-10",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "명확한 자료 유출 · 패턴: large_transfer_new_destination, off_hours_archive_exfil · 110MB · 파일 2건 · 반복 0회"
+    },
+    {
+      "alertId": "ex-11",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: large_transfer_new_destination · 8MB"
+    },
+    {
+      "alertId": "ex-12",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 근거 패턴 없음(T1041·T1048 경보만) · 12MB · 평소 목적지"
+    },
+    {
+      "alertId": "ex-13",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 패턴 일부: off_hours_archive_exfil · 2MB"
+    },
+    {
+      "alertId": "ex-14",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: large_transfer_new_destination · 0.4MB"
+    },
+    {
+      "alertId": "ex-15",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 근거 패턴 없음(T1041·T1048 경보만) · 3MB"
+    },
+    {
+      "alertId": "ex-16",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: off_hours_archive_exfil · 15MB"
+    },
+    {
+      "alertId": "ex-17",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 근거 패턴 없음(T1041·T1048 경보만) · 6MB · 평소 목적지"
+    },
+    {
+      "alertId": "ex-18",
+      "action": "alert",
+      "confidence": 0.53,
+      "reason": "애매한 시도 · 근거 패턴 없음(T1041·T1048 경보만) · 0MB"
+    },
+    {
+      "alertId": "ex-19",
+      "action": "alert",
+      "confidence": 0.56,
+      "reason": "애매한 시도 · 패턴 일부: c2_channel_repeat_transfer · 0.1MB"
+    },
+    {
+      "alertId": "ex-20",
+      "action": "alert",
+      "confidence": 0.62,
+      "reason": "애매한 시도 · 패턴 일부: large_transfer_new_destination, off_hours_archive_exfil · 5MB"
+    },
+    {
+      "alertId": "ex-21",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-22",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-23",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-24",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-25",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-26",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-27",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-28",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-29",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    },
+    {
+      "alertId": "ex-30",
+      "action": "record",
+      "confidence": 0,
+      "reason": "정상 이벤트 · 맞는 패턴 없음 · 평소 목적지"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 10,
+    "record": 10
+  }
+}
