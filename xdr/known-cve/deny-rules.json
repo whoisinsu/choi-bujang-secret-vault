@@ -1,0 +1,106 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "known-cve",
+  "updatedAt": "2026-10-15T03:22:26.011Z",
+  "rules": [
+    {
+      "id": "xdr-kc-deny-203.0.113.10",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-01",
+        "kc-02"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_param · 반복 0회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-198.51.100.16",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.16"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-03"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_param · 반복 6회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-192.0.2.16",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.16"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-04"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_header · 반복 4회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-203.0.113.24",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.24"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-05"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_param, known_scanner_trace · 반복 0회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-198.51.100.24",
+      "action": "deny",
+      "match": {
+        "srcip": "198.51.100.24"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-06"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_param · 반복 8회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-192.0.2.24",
+      "action": "deny",
+      "match": {
+        "srcip": "192.0.2.24"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-07"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_header · 반복 0회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    },
+    {
+      "id": "xdr-kc-deny-203.0.113.31",
+      "action": "deny",
+      "match": {
+        "srcip": "203.0.113.31"
+      },
+      "source": "xdr/known-cve",
+      "createdAt": "2026-10-15T03:22:26.011Z",
+      "evidence": [
+        "kc-08"
+      ],
+      "reason": "명확한 알려진 취약점 악용 · 패턴: jndi_lookup_header, jndi_lookup_param · 반복 0회",
+      "expiresAt": "2026-10-15T04:22:26.011Z"
+    }
+  ]
+}

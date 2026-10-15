@@ -1,0 +1,64 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "known-cve",
+  "basis": "CVE-2021-44228(Log4Shell) 형태 요청 · MITRE ATT&CK T1190 Exploit Public-Facing Application — 오래된 로그 라이브러리가 요청 값 속 원격 조회 구문을 해석해 외부 코드를 불러오게 하는 공개 취약점 악용",
+  "scope": "요청 머리글(data.useragent)과 요청 인자(data.url의 경로·쿼리 값을 URL 디코딩한 값)를 봅니다. 신호는 머리글 안의 원격 조회 구문, 인자 안의 원격 조회 구문, 알려진 취약점 점검 도구의 흔적 세 가지입니다.",
+  "note": "경보 묶음의 조회 구문은 문서용 주소를 쓴 수업용 표기입니다. 그 문자열을 다른 시스템에 넣거나 변형하지 않고, 아래 정규식으로 모양만 대조합니다. 정규식은 대소문자를 가리지 않습니다(flags i). 같은 주소의 반복 횟수(data.count)는 패턴이 아니라 판단 단계에서 봅니다.",
+  "patterns": [
+    {
+      "name": "jndi_lookup_header",
+      "signal": "요청 머리글 안의 원격 조회 구문(jndi 형태)",
+      "match": {
+        "fields": ["data.useragent"],
+        "knownForms": [
+          "\\$\\{\\s*jndi\\s*:\\s*(ldaps?|rmi|dns|iiop|corba|nds|nis|https?)\\s*:"
+        ],
+        "descriptionHints": [
+          "머리글에 원격 조회 구문",
+          "여러 머리글에 같은 CVE-2021-44228 표기",
+          "조회 구문이 머리글"
+        ],
+        "notASignal": "머리글에 중괄호만 한 번 있거나 jndi라는 단어만 있고 ${jndi:<프로토콜>: 모양이 없으면 신호가 아닙니다(예: class-browser)."
+      },
+      "evidence": "CVE-2021-44228 · T1190 — 로그에 남는 머리글(User-Agent 등)에 ${jndi:...} 조회 구문을 넣어 공개 서비스의 로그 라이브러리가 원격 코드를 불러오게 하는 악용."
+    },
+    {
+      "name": "jndi_lookup_param",
+      "signal": "요청 인자 안의 원격 조회 구문(jndi 형태)",
+      "match": {
+        "fields": ["data.url"],
+        "knownForms": [
+          "\\$\\{\\s*jndi\\s*:\\s*(ldaps?|rmi|dns|iiop|corba|nds|nis|https?)\\s*:"
+        ],
+        "descriptionHints": [
+          "주소 인자에 원격 조회 구문",
+          "요청 인자의 원격 조회 구문",
+          "로그인 요청에 CVE-2021-44228 형태",
+          "조회 구문이 머리글과 주소"
+        ],
+        "notASignal": "CVE-2021-44228이라는 취약점 이름 검색, jndi·log 같은 단어, 잘린 조회 글자처럼 ${jndi:<프로토콜>: 모양이 완전하지 않으면 신호가 아닙니다(예: CVE-2021-44228-summary, jndi-class-note, lookup-fragment, log-library-note)."
+      },
+      "evidence": "CVE-2021-44228 · T1190 — 로그에 남는 요청 인자(검색어·next 등)에 ${jndi:...} 조회 구문을 넣어 공개 서비스의 로그 라이브러리가 원격 코드를 불러오게 하는 악용."
+    },
+    {
+      "name": "known_scanner_trace",
+      "signal": "알려진 취약점 점검 도구의 흔적",
+      "match": {
+        "fields": ["rule.description"],
+        "descriptionHints": [
+          "알려진 취약점 점검 흔적"
+        ],
+        "requiresWith": ["jndi_lookup_header", "jndi_lookup_param"],
+        "notASignal": "점검 도구와 비슷한 수업용 프로그램 이름, 취약점 목록 문서 열람처럼 조회 구문이 함께 없으면 이 흔적만으로는 신호가 아닙니다(예: /tools/class-check, /docs/cve-list)."
+      },
+      "evidence": "CVE-2021-44228 · T1190 — 공개된 취약점 점검 도구가 공개 서비스에 조회 구문을 보내 악용 가능 여부를 떠보는 흔적으로, 조회 구문과 함께 있을 때만 악용 시도로 봅니다."
+    }
+  ],
+  "negationHints": [
+    "조회 구문은 없습니다",
+    "원격 조회 구문은 없습니다",
+    "악용 구문은 없습니다",
+    "완전한 구문은 아닙니다",
+    "글자만 있습니다"
+  ]
+}
